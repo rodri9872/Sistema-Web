@@ -1,6 +1,7 @@
 -- =====================================================================
 --  Sistema Web: esquema de base de datos para Supabase
 --  Pegá TODO este archivo en Supabase > SQL Editor > New query > Run.
+--  Después hacé lo mismo con 02_usuarios.sql.
 --  Se puede ejecutar más de una vez sin romper nada.
 -- =====================================================================
 
@@ -14,26 +15,8 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
--- Crea el perfil automáticamente cuando alguien se registra.
--- El primer usuario que se registra queda como administrador.
-create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer set search_path = public as $$
-begin
-  insert into public.profiles (id, full_name, email, role)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
-    new.email,
-    case when exists (select 1 from public.profiles) then 'usuario' else 'admin' end
-  )
-  on conflict (id) do nothing;
-  return new;
-end $$;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
+-- El alta de usuarios, el superusuario inicial y los permisos de perfiles
+-- están en 02_usuarios.sql (ejecutarlo después de este archivo).
 
 -- ---------- Planes ----------
 create table if not exists public.plans (
@@ -153,31 +136,6 @@ begin
     end if;
   end loop;
 end $$;
-
--- Perfiles: cada uno edita el suyo; los administradores editan todos.
-create or replace function public.is_admin()
-returns boolean language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin');
-$$;
-
-drop policy if exists "perfil_edita" on public.profiles;
-create policy "perfil_edita" on public.profiles for update to authenticated
-  using (id = auth.uid() or public.is_admin())
-  with check (id = auth.uid() or public.is_admin());
-
--- Un usuario común no puede cambiarse el rol a sí mismo.
-create or replace function public.protect_role()
-returns trigger language plpgsql security definer set search_path = public as $$
-begin
-  if new.role is distinct from old.role and not public.is_admin() then
-    new.role := old.role;
-  end if;
-  return new;
-end $$;
-
-drop trigger if exists profiles_protect_role on public.profiles;
-create trigger profiles_protect_role before update on public.profiles
-  for each row execute function public.protect_role();
 
 -- ---------- Datos iniciales (solo si las tablas están vacías) ----------
 insert into public.call_statuses (name, color, sort_order, is_final, is_won)

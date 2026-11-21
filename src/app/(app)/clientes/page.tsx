@@ -30,7 +30,7 @@ export default function ClientesPage() {
       selectColumn(
         "owner_id",
         "Usuario a cargo",
-        profiles.map((p) => ({ value: p.id, label: p.full_name ?? p.email ?? "?" })),
+        profiles.map((p) => ({ value: p.id, label: p.full_name ?? p.username ?? "?" })),
       ),
       { field: "source", headerName: "Origen" },
       { field: "notes", headerName: "Notas", minWidth: 220, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true },

@@ -1,6 +1,6 @@
 export type Id = number;
 
-export type Profile = { id: string; full_name: string | null; email: string | null; role: "admin" | "usuario"; active: boolean };
+export type Profile = { id: string; full_name: string | null; username: string | null; email: string | null; role: "admin" | "usuario"; active: boolean };
 export type Plan = { id: Id; name: string; price: number | null; description: string | null; active: boolean };
 export type Status = { id: Id; name: string; color: string; sort_order: number; active: boolean; is_final?: boolean; is_won?: boolean };
 export type CustomField = {
