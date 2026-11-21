@@ -13,7 +13,7 @@ const listOptions = (options: OptionItem[], key: OptionItem["list_key"]) =>
   options.filter((o) => o.list_key === key && o.active).map((o) => ({ value: o.value, label: o.value, color: o.color }));
 
 export default function LlamadasPage() {
-  const { me, clients, profiles, callStatuses, customFields, options, loading } = useData();
+  const { me, plans, profiles, callStatuses, customFields, options, loading } = useData();
   const [onlyMine, setOnlyMine] = useState(false);
   const [status, setStatus] = useState<number | null>(null);
   const [range, setRange] = useState<Range>("todas");
@@ -61,19 +61,19 @@ export default function LlamadasPage() {
         { width: 110 },
       ),
       selectColumn("close_result", "Cierre", listOptions(options, "cierre"), { width: 140 }),
+      selectColumn(
+        "plan_id",
+        "Plan",
+        plans.filter((p) => p.active).map((p) => ({ value: p.id, label: p.name })),
+        { width: 140 },
+      ),
       selectColumn("payment_type", "Tipo de pago", listOptions(options, "tipo_pago"), { width: 130 }),
       { field: "notes", headerName: "Observaciones", width: 260, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true },
-      selectColumn(
-        "client_id",
-        "Ficha de cliente",
-        clients.map((c) => ({ value: c.id, label: c.company ? `${c.name} (${c.company})` : c.name })),
-        { width: 180, hide: true },
-      ),
       { field: "duration_min", headerName: "Duración (min)", cellDataType: "number", width: 120, hide: true },
       { field: "result", headerName: "Resultado", width: 160, hide: true },
       ...customFieldColumns(customFields, "calls"),
     ];
-  }, [clients, profiles, callStatuses, customFields, options]);
+  }, [plans, profiles, callStatuses, customFields, options]);
 
   const externalFilter = useMemo(() => {
     if (!onlyMine && status === null && range === "todas") return undefined;
@@ -124,7 +124,7 @@ export default function LlamadasPage() {
       </div>
       <EditableGrid
         table="calls"
-        stateKey="calls_v2"
+        stateKey="calls_v3"
         columns={columns}
         exportName="llamadas"
         orderBy={{ column: "scheduled_on", ascending: false }}

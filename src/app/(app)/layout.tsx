@@ -11,7 +11,6 @@ import { useState } from "react";
 
 const NAV = [
   { href: "/", label: "Inicio", icon: "🏠" },
-  { href: "/clientes", label: "Clientes", icon: "👥" },
   { href: "/llamadas", label: "Llamadas", icon: "📞" },
   { href: "/planes", label: "Planes", icon: "📦" },
   { href: "/redes", label: "Redes sociales", icon: "📈" },
