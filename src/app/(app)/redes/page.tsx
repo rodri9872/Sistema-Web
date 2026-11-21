@@ -155,7 +155,11 @@ function RegistroDiario({ month }: { month: string }) {
       numCol("calls_scheduled", "Llamadas agendadas"),
       calc("% agendadas s/ propuestas", (r) => ratio(Number(r.calls_scheduled) || 0, Number(r.proposals) || 0), pct),
       calc("% agendadas s/ conversaciones", (r) => ratio(Number(r.calls_scheduled) || 0, totalConversations(r)), pct),
-      numCol("sales_closed", "Ventas cerradas"),
+      numCol("sales_closed", "Ventas cerradas", {
+        editable: false,
+        cellClass: "bg-slate-50 text-slate-700",
+        headerTooltip: "Se calcula solo: llamadas de ese día con Cierre = venta",
+      }),
       numCol("ticket", "Ticket", { valueFormatter: (p) => money(p.value) }),
       calc("Facturación", billing, (v) => money(v)),
       { field: "notes", headerName: "Notas", width: 220 },
@@ -165,7 +169,7 @@ function RegistroDiario({ month }: { month: string }) {
   return (
     <div className="space-y-2">
       <p className="text-sm text-slate-600">
-        Completá cada día los números. Los totales y porcentajes se calculan solos (las celdas grises). Podés pegar varias filas
+        Completá cada día los números. Los totales, porcentajes y las ventas cerradas (que salen de Llamadas) se calculan solos (las celdas grises). Podés pegar varias filas
         copiadas desde tu Excel.
       </p>
       <EditableGrid
