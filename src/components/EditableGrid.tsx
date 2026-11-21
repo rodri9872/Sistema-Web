@@ -81,6 +81,8 @@ export type EditableGridProps = {
   canAdd?: boolean;
   canDelete?: boolean;
   exportName?: string;
+  /** Título del reporte PDF */
+  pdfTitle?: string;
   /** Traer solo filas en un rango (ej. un mes): column >= gte y column < lt */
   range?: { column: string; gte: string; lt: string };
   /** Se ejecuta antes de cargar (ej. crear las filas del mes) */
@@ -106,6 +108,7 @@ export default function EditableGrid({
   canAdd = true,
   canDelete = true,
   exportName,
+  pdfTitle,
   onChange,
   fit = false,
   range,
@@ -344,6 +347,31 @@ export default function EditableGrid({
 
   const allCols = (showCols && gridApi?.getColumns()) || [];
 
+  const exportPdf = async () => {
+    const api = apiRef.current;
+    if (!api) return;
+    const cols = api.getAllDisplayedColumns().filter((c) => c.getColDef().headerName);
+    const text = (node: IRowNode<Row>, col: Column) => {
+      const v = api.getCellValue({ rowNode: node, colKey: col, useFormatter: true });
+      return v === null || v === undefined ? "" : String(v);
+    };
+    const body: string[][] = [];
+    api.forEachNodeAfterFilterAndSort((node) => {
+      if (node.data) body.push(cols.map((c) => text(node, c)));
+    });
+    const totalRow = api.getPinnedBottomRowCount() ? api.getPinnedBottomRow(0) : undefined;
+    const { downloadPdf } = await import("@/lib/pdf");
+    await downloadPdf({
+      title: pdfTitle ?? exportName ?? table,
+      subtitle: `${body.length} filas`,
+      head: cols.map((c) => c.getColDef().headerName ?? ""),
+      body,
+      foot: totalRow ? cols.map((c) => text(totalRow, c)) : undefined,
+      fileName: exportName ?? table,
+      landscape: cols.length > 5,
+    });
+  };
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -358,13 +386,13 @@ export default function EditableGrid({
           </button>
         )}
         <input
-          className="input w-56"
+          className="input w-full sm:w-56"
           placeholder="Buscar en la tabla…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         {toolbar}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <div className="relative">
             <button className="btn" onClick={() => setShowCols((s) => !s)}>
               Columnas ▾
@@ -409,10 +437,13 @@ export default function EditableGrid({
           >
             Exportar a Excel (CSV)
           </button>
+          <button className="btn" onClick={exportPdf}>
+            PDF
+          </button>
         </div>
       </div>
 
-      <div style={{ height }} className="relative">
+      <div style={{ height, minHeight: 380 }} className="relative">
         <AgGridReact<Row>
           theme={excelTheme}
           localeText={AG_GRID_LOCALE_ES}

@@ -24,7 +24,7 @@ export default function PlanesPage() {
     <div className="space-y-3">
       <h1 className="page-title">Planes</h1>
       <p className="text-sm text-slate-600">Los planes que cargues acá aparecen en la columna “Plan” de cada cliente.</p>
-      <EditableGrid fit table="plans" columns={columns} orderBy={{ column: "name", ascending: true }} exportName="planes" onChange={onChange} />
+      <EditableGrid fit table="plans" columns={columns} orderBy={{ column: "name", ascending: true }} exportName="planes" pdfTitle="Planes" onChange={onChange} />
     </div>
   );
 }
