@@ -1,124 +1,65 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
-import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { ColDef, ColGroupDef, ValueGetterParams } from "ag-grid-community";
+import { Bar, BarChart, CartesianGrid, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import EditableGrid from "@/components/EditableGrid";
-import { useData } from "@/components/DataProvider";
-import { colorColumn, selectColumn, today } from "@/lib/grid";
+import { money, today } from "@/lib/grid";
 import { supabase } from "@/lib/supabase/client";
 import { AXIS, GRID, SERIES } from "@/lib/palette";
-import type { SocialStat } from "@/lib/types";
+import {
+  MONTHS,
+  billing,
+  monthRange,
+  num,
+  pct,
+  ratio,
+  shiftMonth,
+  sumDaily,
+  totalConversations,
+  weekday,
+  type Daily,
+} from "@/lib/metrics";
 
-const NETWORKS = ["Instagram", "Facebook", "TikTok", "WhatsApp", "LinkedIn", "X / Twitter", "YouTube", "Otra"];
+type Tab = "diario" | "graficos" | "resumen";
 
-type Tab = "graficos" | "diario" | "cuentas";
-
-const fmtDay = (d: string) => {
-  const [, m, day] = d.split("-");
-  return `${day}/${m}`;
-};
 const legendText = (v: string) => <span style={{ color: "#334155", fontSize: 13 }}>{v}</span>;
-const n = (v: number | null | undefined) => (v ?? 0).toLocaleString("es-AR");
+const dayLabel = (iso: string) => iso.slice(8, 10);
 
 export default function RedesPage() {
-  const { socialAccounts, reload, loading } = useData();
-  const [tab, setTab] = useState<Tab>("graficos");
-  const [days, setDays] = useState(30);
-  const [stats, setStats] = useState<SocialStat[]>([]);
-
-  const accounts = useMemo(() => socialAccounts.filter((a) => a.active), [socialAccounts]);
-
-  const loadStats = useCallback(async () => {
-    const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-    const { data } = await supabase().from("social_stats").select("*").gte("stat_date", from).order("stat_date");
-    setStats((data ?? []) as SocialStat[]);
-  }, [days]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (tab === "graficos") loadStats();
-  }, [tab, loadStats]);
-
-  // Una fila por día, una columna por cuenta
-  const series = useMemo(() => {
-    const byDay = new Map<string, Record<string, number | string>>();
-    for (const s of stats) {
-      if (!s.account_id) continue;
-      const row = byDay.get(s.stat_date) ?? { day: s.stat_date };
-      if (s.followers != null) row[`f${s.account_id}`] = s.followers;
-      row[`c${s.account_id}`] = ((row[`c${s.account_id}`] as number) ?? 0) + (s.conversations ?? 0);
-      byDay.set(s.stat_date, row);
-    }
-    return [...byDay.values()].sort((a, b) => String(a.day).localeCompare(String(b.day)));
-  }, [stats]);
-
-  const kpis = useMemo(
-    () =>
-      accounts.map((a) => {
-        const own = stats.filter((s) => s.account_id === a.id && s.followers != null);
-        const last = own[own.length - 1];
-        const first = own[0];
-        const todayRow = stats.filter((s) => s.account_id === a.id && s.stat_date === today());
-        return {
-          a,
-          followers: last?.followers ?? null,
-          diff: last && first && last !== first ? (last.followers ?? 0) - (first.followers ?? 0) : null,
-          convToday: todayRow.reduce((t, s) => t + (s.conversations ?? 0), 0),
-          convPeriod: stats.filter((s) => s.account_id === a.id).reduce((t, s) => t + (s.conversations ?? 0), 0),
-        };
-      }),
-    [accounts, stats],
-  );
-
-  const accountCols = useMemo<ColDef[]>(
-    () => [
-      selectColumn(
-        "network",
-        "Red social",
-        NETWORKS.map((x) => ({ value: x, label: x })),
-      ),
-      { field: "handle", headerName: "Cuenta / usuario", minWidth: 200 },
-      colorColumn("color", "Color en gráficos"),
-      { field: "active", headerName: "Activa", cellDataType: "boolean", maxWidth: 110 },
-    ],
-    [],
-  );
-
-  const statCols = useMemo<ColDef[]>(
-    () => [
-      { field: "stat_date", headerName: "Fecha", cellDataType: "dateString", maxWidth: 150, sort: "desc" },
-      selectColumn(
-        "account_id",
-        "Cuenta",
-        socialAccounts.map((a) => ({ value: a.id, label: `${a.network} · ${a.handle}` })),
-        { minWidth: 200 },
-      ),
-      { field: "followers", headerName: "Seguidores", cellDataType: "number" },
-      { field: "conversations", headerName: "Conversaciones", cellDataType: "number" },
-      { field: "messages", headerName: "Mensajes", cellDataType: "number" },
-      { field: "posts", headerName: "Publicaciones", cellDataType: "number" },
-      { field: "reach", headerName: "Alcance", cellDataType: "number" },
-      { field: "notes", headerName: "Notas", minWidth: 200 },
-    ],
-    [socialAccounts],
-  );
-
-  const onAccountsChange = useCallback(() => {
-    reload();
-  }, [reload]);
-
-  if (loading) return <p className="text-slate-500">Cargando…</p>;
+  const [tab, setTab] = useState<Tab>("diario");
+  const [month, setMonth] = useState(today().slice(0, 7));
+  const range = useMemo(() => monthRange(month), [month]);
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "graficos", label: "Estadísticas" },
-    { key: "diario", label: "Carga diaria" },
-    { key: "cuentas", label: "Cuentas" },
+    { key: "diario", label: "Registro diario" },
+    { key: "graficos", label: "Estadísticas del mes" },
+    { key: "resumen", label: "Resumen por mes" },
   ];
 
   return (
     <div className="space-y-3">
-      <h1 className="page-title">Redes sociales</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="page-title">Redes sociales</h1>
+        {tab !== "resumen" && (
+          <div className="flex items-center gap-1">
+            <button className="btn" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Mes anterior">
+              ‹
+            </button>
+            <span className="w-40 text-center font-medium">{range.label}</span>
+            <button className="btn" onClick={() => setMonth(shiftMonth(month, 1))} aria-label="Mes siguiente">
+              ›
+            </button>
+            <input
+              type="month"
+              className="input ml-2"
+              value={month}
+              onChange={(e) => e.target.value && setMonth(e.target.value)}
+              title="Elegir mes"
+            />
+          </div>
+        )}
+      </div>
       <div className="flex gap-1 border-b border-slate-200">
         {tabs.map((t) => (
           <button
@@ -133,138 +74,338 @@ export default function RedesPage() {
         ))}
       </div>
 
-      {tab === "graficos" && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-500">Período:</span>
-            {[7, 30, 90, 365].map((d) => (
-              <button key={d} className={`btn ${days === d ? "btn-active" : ""}`} onClick={() => setDays(d)}>
-                {d === 365 ? "1 año" : `${d} días`}
-              </button>
-            ))}
+      {tab === "diario" && <RegistroDiario month={month} />}
+      {tab === "graficos" && <EstadisticasMes month={month} />}
+      {tab === "resumen" && <ResumenMeses />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Registro diario: una fila por día del mes, como la planilla
+// ---------------------------------------------------------------------------
+function RegistroDiario({ month }: { month: string }) {
+  const range = useMemo(() => monthRange(month), [month]);
+  const gridRange = useMemo(() => ({ column: "stat_date", gte: range.from, lt: range.to }), [range]);
+  const beforeLoad = useCallback(async () => {
+    await supabase().rpc("ensure_month_rows", { p_month: range.from });
+  }, [range.from]);
+
+  const totals = useCallback((rows: Record<string, unknown>[]) => {
+    const t = sumDaily(rows as Partial<Daily>[]);
+    return {
+      id: "total",
+      stat_date: null,
+      _label: "TOTAL",
+      new_followers: t.new_followers,
+      new_conversations: t.new_conversations,
+      follow_ups: t.follow_ups,
+      proposals: t.proposals,
+      calls_scheduled: t.calls_scheduled,
+      sales_closed: t.sales_closed,
+      ticket: t.avgTicket,
+    };
+  }, []);
+
+  const columns = useMemo<(ColDef | ColGroupDef)[]>(() => {
+    const d = (p: ValueGetterParams) => (p.data ?? {}) as Partial<Daily>;
+    const numCol = (field: string, headerName: string, extra: Partial<ColDef> = {}): ColDef => ({
+      field,
+      headerName,
+      cellDataType: "number",
+      width: 125,
+      filter: false,
+      ...extra,
+    });
+    const calc = (headerName: string, getter: (r: Partial<Daily>) => number | null, fmt: (v: number | null) => string): ColDef => ({
+      headerName,
+      colId: headerName,
+      editable: false,
+      filter: false,
+      width: 135,
+      valueGetter: (p) => getter(d(p)),
+      valueFormatter: (p) => fmt(p.value),
+      cellClass: "bg-slate-50 text-slate-700",
+      type: "rightAligned",
+    });
+    return [
+      {
+        headerName: "Día",
+        colId: "dia",
+        pinned: "left",
+        editable: false,
+        width: 110,
+        valueGetter: (p) => (p.data?._label as string) ?? weekday(p.data?.stat_date ?? null),
+        cellClass: "capitalize font-medium",
+      },
+      {
+        field: "stat_date",
+        headerName: "Fecha",
+        pinned: "left",
+        editable: false,
+        width: 105,
+        valueFormatter: (p) => (p.value ? `${p.value.slice(8, 10)}/${p.value.slice(5, 7)}/${p.value.slice(2, 4)}` : ""),
+      },
+      numCol("new_followers", "Nuevos seguidores"),
+      numCol("new_conversations", "Nuevas conversaciones", { width: 140 }),
+      numCol("follow_ups", "Follow ups"),
+      calc("Total conversaciones del día", totalConversations, num),
+      {
+        headerName: "Propuesta agenda",
+        children: [
+          numCol("proposals", "Cantidad", { width: 110 }),
+          calc("% s/ conversaciones (prop.)", (r) => ratio(Number(r.proposals) || 0, totalConversations(r)), pct),
+        ],
+      },
+      {
+        headerName: "Llamadas agendadas",
+        children: [
+          numCol("calls_scheduled", "Cantidad ", { width: 110 }),
+          calc("% s/ propuestas", (r) => ratio(Number(r.calls_scheduled) || 0, Number(r.proposals) || 0), pct),
+          calc("% s/ conversaciones", (r) => ratio(Number(r.calls_scheduled) || 0, totalConversations(r)), pct),
+        ],
+      },
+      numCol("sales_closed", "Ventas cerradas"),
+      numCol("ticket", "Ticket", { valueFormatter: (p) => money(p.value) }),
+      calc("Facturación", billing, (v) => money(v)),
+      { field: "notes", headerName: "Notas", width: 220 },
+    ];
+  }, []);
+
+  // Encabezados más cortos dentro de los grupos
+  const shortHeaders = useMemo(
+    () =>
+      columns.map((c) =>
+        "children" in c
+          ? {
+              ...c,
+              children: c.children.map((ch) => {
+                const h = (ch as ColDef).headerName ?? "";
+                return { ...ch, headerName: h.startsWith("% s/ conversaciones") ? "% s/ conversaciones" : h.trim() };
+              }),
+            }
+          : c,
+      ),
+    [columns],
+  );
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-slate-600">
+        Completá cada día los números. Los totales y porcentajes se calculan solos (las celdas grises). Podés pegar varias filas
+        copiadas desde tu Excel.
+      </p>
+      <EditableGrid
+        key={month}
+        table="daily_metrics"
+        stateKey="daily_metrics_v1"
+        columns={shortHeaders as ColDef[]}
+        range={gridRange}
+        beforeLoad={beforeLoad}
+        totals={totals}
+        orderBy={{ column: "stat_date", ascending: true }}
+        canAdd={false}
+        canDelete={false}
+        exportName={`redes-${month}`}
+        height="calc(100vh - 290px)"
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Estadísticas del mes
+// ---------------------------------------------------------------------------
+function useMonthRows(month: string) {
+  const [rows, setRows] = useState<Daily[]>([]);
+  useEffect(() => {
+    const { from, to } = monthRange(month);
+    supabase()
+      .from("daily_metrics")
+      .select("*")
+      .gte("stat_date", from)
+      .lt("stat_date", to)
+      .order("stat_date")
+      .then(({ data }) => setRows((data ?? []) as Daily[]));
+  }, [month]);
+  return rows;
+}
+
+function EstadisticasMes({ month }: { month: string }) {
+  const rows = useMonthRows(month);
+  const t = useMemo(() => sumDaily(rows), [rows]);
+  const daily = rows.map((r) => ({
+    day: r.stat_date ?? "",
+    seguidores: r.new_followers ?? 0,
+    nuevas: r.new_conversations ?? 0,
+    followups: r.follow_ups ?? 0,
+  }));
+  const funnel = [
+    { etapa: "Conversaciones", valor: t.conversations, nota: "" },
+    { etapa: "Propuestas", valor: t.proposals, nota: pct(t.pctProposals) },
+    { etapa: "Agendadas", valor: t.calls_scheduled, nota: pct(t.pctCallsOverProposals) },
+    { etapa: "Ventas", valor: t.sales_closed, nota: pct(t.pctSalesOverCalls) },
+  ];
+
+  const tiles = [
+    { label: "Nuevos seguidores", value: num(t.new_followers) },
+    { label: "Conversaciones", value: num(t.conversations), sub: `${num(t.new_conversations)} nuevas · ${num(t.follow_ups)} follow ups` },
+    { label: "Propuestas de agenda", value: num(t.proposals), sub: `${pct(t.pctProposals)} de las conversaciones` },
+    { label: "Llamadas agendadas", value: num(t.calls_scheduled), sub: `${pct(t.pctCallsOverProposals)} de las propuestas` },
+    { label: "Ventas cerradas", value: num(t.sales_closed), sub: `${pct(t.pctSalesOverCalls)} de las agendadas` },
+    { label: "Facturación", value: money(t.billing) || "0 €", sub: t.avgTicket ? `Ticket promedio ${money(t.avgTicket)}` : "" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {tiles.map((k) => (
+          <div key={k.label} className="card">
+            <div className="text-xs text-slate-500">{k.label}</div>
+            <div className="mt-1 text-2xl font-semibold tabular-nums">{k.value}</div>
+            {k.sub && <div className="mt-0.5 text-xs text-slate-500">{k.sub}</div>}
           </div>
+        ))}
+      </div>
 
-          {accounts.length === 0 ? (
-            <div className="card text-sm text-slate-600">
-              Todavía no hay cuentas. Andá a la pestaña <b>Cuentas</b> y agregá tus redes (Instagram, Facebook, etc.). Después cargá los
-              números de cada día en <b>Carga diaria</b>.
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {kpis.map(({ a, followers, diff, convToday, convPeriod }) => (
-                  <div key={a.id} className="card">
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: a.color }} />
-                      {a.network} · {a.handle}
-                    </div>
-                    <div className="mt-1 text-2xl font-semibold tabular-nums">{followers == null ? "—" : n(followers)}</div>
-                    <div className="text-xs text-slate-500">
-                      seguidores
-                      {diff != null && (
-                        <span className={diff >= 0 ? "text-green-700" : "text-red-600"}>
-                          {" "}
-                          · {diff >= 0 ? "▲ +" : "▼ "}
-                          {n(diff)} en el período
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-2 text-xs text-slate-600">
-                      Conversaciones hoy: <b className="tabular-nums">{n(convToday)}</b> · en el período:{" "}
-                      <b className="tabular-nums">{n(convPeriod)}</b>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <div className="card">
-                  <h2 className="mb-2 text-sm font-medium">Seguidores</h2>
-                  <ResponsiveContainer width="100%" height={280}>
-                    <LineChart data={series} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                      <CartesianGrid stroke={GRID} vertical={false} />
-                      <XAxis dataKey="day" tickFormatter={fmtDay} {...AXIS} tickLine={false} />
-                      <YAxis {...AXIS} tickLine={false} axisLine={false} tickFormatter={(v) => n(v)} width={60} domain={["auto", "auto"]} />
-                      <Tooltip labelFormatter={(d) => fmtDay(String(d))} formatter={(v) => n(Number(v))} />
-                      <Legend formatter={legendText} />
-                      {accounts.map((a) => (
-                        <Line
-                          key={a.id}
-                          dataKey={`f${a.id}`}
-                          name={`${a.network} · ${a.handle}`}
-                          stroke={a.color}
-                          strokeWidth={2}
-                          dot={false}
-                          activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }}
-                          connectNulls
-                        />
-                      ))}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="card">
-                  <h2 className="mb-2 text-sm font-medium">Conversaciones por día</h2>
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={series} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                      <CartesianGrid stroke={GRID} vertical={false} />
-                      <XAxis dataKey="day" tickFormatter={fmtDay} {...AXIS} tickLine={false} />
-                      <YAxis {...AXIS} tickLine={false} axisLine={false} allowDecimals={false} width={40} />
-                      <Tooltip labelFormatter={(d) => fmtDay(String(d))} cursor={{ fill: "#f1f5f9" }} />
-                      <Legend formatter={legendText} />
-                      {accounts.map((a, i) => (
-                        <Bar
-                          key={a.id}
-                          dataKey={`c${a.id}`}
-                          name={`${a.network} · ${a.handle}`}
-                          stackId="c"
-                          fill={a.color}
-                          stroke="#fff"
-                          strokeWidth={1}
-                          radius={i === accounts.length - 1 ? [4, 4, 0, 0] : 0}
-                        />
-                      ))}
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </>
-          )}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="card">
+          <h2 className="mb-2 text-sm font-medium">Conversaciones por día</h2>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={daily} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={GRID} vertical={false} />
+              <XAxis dataKey="day" tickFormatter={dayLabel} {...AXIS} tickLine={false} interval={1} />
+              <YAxis {...AXIS} allowDecimals={false} tickLine={false} axisLine={false} width={32} />
+              <Tooltip labelFormatter={(d) => `Día ${dayLabel(String(d))}`} cursor={{ fill: "#f1f5f9" }} />
+              <Legend formatter={legendText} />
+              <Bar dataKey="nuevas" name="Nuevas conversaciones" stackId="c" fill={SERIES[0]} stroke="#fff" strokeWidth={1} />
+              <Bar dataKey="followups" name="Follow ups" stackId="c" fill={SERIES[1]} stroke="#fff" strokeWidth={1} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-      )}
+        <div className="card">
+          <h2 className="mb-2 text-sm font-medium">Nuevos seguidores por día</h2>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={daily} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke={GRID} vertical={false} />
+              <XAxis dataKey="day" tickFormatter={dayLabel} {...AXIS} tickLine={false} interval={1} />
+              <YAxis {...AXIS} allowDecimals={false} tickLine={false} axisLine={false} width={40} />
+              <Tooltip labelFormatter={(d) => `Día ${dayLabel(String(d))}`} cursor={{ fill: "#f1f5f9" }} formatter={(v) => [v, "Nuevos seguidores"]} />
+              <Bar dataKey="seguidores" fill={SERIES[2]} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
 
-      {tab === "diario" && (
-        <>
-          <p className="text-sm text-slate-600">
-            Cargá una fila por día y por cuenta: seguidores al cierre del día, conversaciones nuevas, mensajes, etc. Podés copiar y pegar
-            varias filas desde Excel.
-          </p>
-          <EditableGrid
-            key="stats"
-            table="social_stats"
-            columns={statCols}
-            orderBy={{ column: "stat_date", ascending: false }}
-            exportName="estadisticas-redes"
-            height="calc(100vh - 290px)"
-            newRow={() => ({ stat_date: today(), account_id: accounts[0]?.id ?? null })}
-          />
-        </>
-      )}
+      <div className="card">
+        <h2 className="mb-2 text-sm font-medium">Embudo del mes (de conversación a venta)</h2>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={funnel} layout="vertical" margin={{ top: 4, right: 120, left: 20, bottom: 0 }}>
+            <XAxis type="number" hide />
+            <YAxis type="category" dataKey="etapa" {...AXIS} tickLine={false} axisLine={false} width={110} />
+            <Tooltip cursor={{ fill: "#f1f5f9" }} formatter={(v) => [v, "Cantidad"]} />
+            <Bar dataKey="valor" fill={SERIES[0]} radius={[0, 4, 4, 0]} maxBarSize={28}>
+              <LabelList
+                dataKey="valor"
+                position="right"
+                content={(props) => {
+                  const { x = 0, y = 0, width = 0, height = 0, index = 0 } = props as {
+                    x?: number;
+                    y?: number;
+                    width?: number;
+                    height?: number;
+                    index?: number;
+                  };
+                  const f = funnel[index];
+                  return (
+                    <text x={Number(x) + Number(width) + 8} y={Number(y) + Number(height) / 2 + 4} fontSize={12} fill="#334155">
+                      {f.valor}
+                      {f.nota && <tspan fill="#64748b">{`  (${f.nota} de la etapa anterior)`}</tspan>}
+                    </text>
+                  );
+                }}
+              />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
 
-      {tab === "cuentas" && (
-        <>
-          <p className="text-sm text-slate-600">Las cuentas de redes sociales que querés seguir.</p>
-          <EditableGrid
-            key="acc"
-            fit
-            table="social_accounts"
-            columns={accountCols}
-            orderBy={{ column: "id", ascending: true }}
-            height="calc(100vh - 290px)"
-            onChange={onAccountsChange}
-            newRow={() => ({ network: "Instagram", handle: "@cuenta", color: SERIES[socialAccounts.length % SERIES.length] })}
-          />
-        </>
-      )}
+// ---------------------------------------------------------------------------
+// Resumen por mes (últimos 12 meses)
+// ---------------------------------------------------------------------------
+function ResumenMeses() {
+  const [rows, setRows] = useState<Daily[]>([]);
+  useEffect(() => {
+    const from = monthRange(shiftMonth(today().slice(0, 7), -11)).from;
+    supabase()
+      .from("daily_metrics")
+      .select("*")
+      .gte("stat_date", from)
+      .order("stat_date")
+      .then(({ data }) => setRows((data ?? []) as Daily[]));
+  }, []);
+
+  const byMonth = useMemo(() => {
+    const groups = new Map<string, Daily[]>();
+    for (const r of rows) {
+      const k = (r.stat_date ?? "").slice(0, 7);
+      groups.set(k, [...(groups.get(k) ?? []), r]);
+    }
+    return [...groups.entries()]
+      .map(([k, list]) => ({ k, t: sumDaily(list) }))
+      .filter(({ t }) => t.conversations || t.new_followers || t.sales_closed)
+      .sort((a, b) => b.k.localeCompare(a.k));
+  }, [rows]);
+
+  const label = (k: string) => {
+    const [y, m] = k.split("-").map(Number);
+    return MONTHS[m - 1][0].toUpperCase() + MONTHS[m - 1].slice(1) + " " + y;
+  };
+
+  return (
+    <div className="card overflow-x-auto">
+      <table className="w-full min-w-[900px] text-sm">
+        <thead className="text-right text-xs text-slate-500">
+          <tr>
+            <th className="py-2 text-left">Mes</th>
+            <th>Nuevos seguidores</th>
+            <th>Conversaciones</th>
+            <th>Propuestas</th>
+            <th>% propuestas</th>
+            <th>Agendadas</th>
+            <th>% agendadas</th>
+            <th>Ventas</th>
+            <th>Facturación</th>
+            <th>Ticket prom.</th>
+          </tr>
+        </thead>
+        <tbody className="text-right tabular-nums">
+          {byMonth.map(({ k, t }) => (
+            <tr key={k} className="border-t border-slate-100">
+              <td className="py-2 text-left font-medium">{label(k)}</td>
+              <td>{num(t.new_followers)}</td>
+              <td>{num(t.conversations)}</td>
+              <td>{num(t.proposals)}</td>
+              <td>{pct(t.pctProposals)}</td>
+              <td>{num(t.calls_scheduled)}</td>
+              <td>{pct(t.pctCallsOverProposals)}</td>
+              <td>{num(t.sales_closed)}</td>
+              <td>{money(t.billing) || "0 €"}</td>
+              <td>{t.avgTicket ? money(t.avgTicket) : "—"}</td>
+            </tr>
+          ))}
+          {byMonth.length === 0 && (
+            <tr>
+              <td colSpan={10} className="py-3 text-left text-slate-500">
+                Todavía no hay datos cargados.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }

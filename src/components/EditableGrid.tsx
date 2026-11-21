@@ -81,6 +81,14 @@ export type EditableGridProps = {
   canAdd?: boolean;
   canDelete?: boolean;
   exportName?: string;
+  /** Traer solo filas en un rango (ej. un mes): column >= gte y column < lt */
+  range?: { column: string; gte: string; lt: string };
+  /** Se ejecuta antes de cargar (ej. crear las filas del mes) */
+  beforeLoad?: () => Promise<unknown>;
+  /** Fila de totales fija abajo */
+  totals?: (rows: Row[]) => Row;
+  /** Clave para recordar columnas (por defecto, el nombre de la tabla) */
+  stateKey?: string;
   /** Avisa cuando cambian los datos (para refrescar listas en otras pantallas) */
   onChange?: (rows: Row[]) => void;
   /** Estirar las columnas para ocupar todo el ancho (tablas con pocas columnas) */
@@ -100,6 +108,10 @@ export default function EditableGrid({
   exportName,
   onChange,
   fit = false,
+  range,
+  beforeLoad,
+  totals,
+  stateKey,
 }: EditableGridProps) {
   const apiRef = useRef<GridApi<Row> | null>(null);
   const reverting = useRef(false);
@@ -111,7 +123,12 @@ export default function EditableGrid({
   const [showCols, setShowCols] = useState(false);
   const [gridApi, setGridApi] = useState<GridApi<Row> | null>(null);
   const [, force] = useState(0);
-  const storageKey = `grilla:${table}`;
+  const storageKey = `grilla:${stateKey ?? table}`;
+  const [pinned, setPinned] = useState<Row[]>([]);
+  const totalsRef = useRef(totals);
+  useEffect(() => {
+    totalsRef.current = totals;
+  }, [totals]);
   const onChangeRef = useRef(onChange);
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -124,14 +141,17 @@ export default function EditableGrid({
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase()
-      .from(table)
-      .select("*")
-      .order(orderBy.column, { ascending: orderBy.ascending ?? false });
+    if (beforeLoad) await beforeLoad();
+    let q = supabase().from(table).select("*");
+    if (range) q = q.gte(range.column, range.gte).lt(range.column, range.lt);
+    const { data, error } = await q.order(orderBy.column, { ascending: orderBy.ascending ?? false });
     if (error) flash("No se pudieron cargar los datos: " + error.message, true);
-    setRows((data ?? []) as Row[]);
+    const list = (data ?? []) as Row[];
+    setRows(list);
+    setPinned(totalsRef.current ? [totalsRef.current(list)] : []);
     setLoading(false);
-  }, [table, orderBy.column, orderBy.ascending, flash]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [table, orderBy.column, orderBy.ascending, flash, range?.column, range?.gte, range?.lt, beforeLoad]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -145,12 +165,15 @@ export default function EditableGrid({
   const notify = () => {
     const all: Row[] = [];
     apiRef.current?.forEachNode((n) => n.data && all.push(n.data));
+    if (totalsRef.current) setPinned([totalsRef.current(all)]);
     onChangeRef.current?.(all);
   };
 
   const defaultColDef = useMemo<ColDef>(
     () => ({
-      editable: true,
+      editable: (p) => !p.node.rowPinned,
+      wrapHeaderText: true,
+      autoHeaderHeight: true,
       filter: true,
       floatingFilter: false,
       sortable: true,
@@ -163,7 +186,7 @@ export default function EditableGrid({
 
   // ---- Guardar cada celda editada ----
   const onCellValueChanged = async (e: CellValueChangedEvent<Row>) => {
-    if (reverting.current) return;
+    if (reverting.current || e.node.rowPinned) return;
     const field = e.colDef.field;
     if (!field || !e.data) return;
     let value: unknown = e.newValue;
@@ -177,6 +200,7 @@ export default function EditableGrid({
       flash("No se guardó: " + error.message, true);
     } else {
       flash("Guardado ✓");
+      e.api.refreshCells({ rowNodes: [e.node], force: true });
       notify();
     }
   };
@@ -280,7 +304,7 @@ export default function EditableGrid({
         line.split("\t").forEach((cell, c) => {
           const col = cols[startCol + c];
           const def = col?.getColDef();
-          if (!col || !def?.field || def.editable === false) return;
+          if (!col || !def?.field || !col.isCellEditable(node)) return;
           let value: unknown = cell;
           if (def.valueParser && typeof def.valueParser === "function") {
             value = def.valueParser({
@@ -309,7 +333,7 @@ export default function EditableGrid({
 
     if ((key === "delete" || key === "backspace") && !mod) {
       const def = e.column.getColDef();
-      if (def.field && def.editable !== false && e.value !== null && e.value !== "") {
+      if (def.field && (e.column as Column).isCellEditable(e.node) && e.value !== null && e.value !== "") {
         ev.preventDefault();
         e.node.setDataValue(e.column, null);
       }
@@ -393,10 +417,12 @@ export default function EditableGrid({
           rowData={rows}
           loading={loading}
           columnDefs={columns}
+          pinnedBottomRowData={pinned}
+          getRowStyle={(p) => (p.node.rowPinned ? { fontWeight: 600, background: "#f1f5f9" } : undefined)}
           defaultColDef={defaultColDef}
           getRowId={(p) => String(p.data.id)}
           quickFilterText={search}
-          rowSelection={{ mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false }}
+          rowSelection={canDelete ? { mode: "multiRow", checkboxes: true, headerCheckbox: true, enableClickSelection: false } : undefined}
           selectionColumnDef={{ pinned: "left", width: 44, minWidth: 44, maxWidth: 44 }}
           dataTypeDefinitions={dataTypes}
           onSelectionChanged={(e) => setSelectedCount(e.api.getSelectedRows().length)}

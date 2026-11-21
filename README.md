@@ -6,7 +6,7 @@ Sistema para llevar **clientes, llamadas, planes y estadísticas de redes social
 - **Clientes**: plan, usuario a cargo, estado, notas y las columnas extra que quieras.
 - **Llamadas**: fecha, hora, cliente, estado (agendada, concretada, cerrada…), usuario, resultado. Filtros: Hoy, Próximos 7 días, Atrasadas, Solo mías.
 - **Planes**: nombre, precio y descripción.
-- **Redes sociales**: cuentas, carga diaria (seguidores, conversaciones, mensajes, alcance) y gráficos.
+- **Redes sociales**: registro diario como la planilla (un mes por hoja, un día por fila): nuevos seguidores, nuevas conversaciones, follow ups, propuestas de agenda, llamadas agendadas, ventas cerradas, ticket y facturación, con porcentajes y totales automáticos. Más estadísticas del mes y resumen por mes.
 - **Configuración**: estados de llamadas y de clientes, campos personalizados (columnas nuevas) y usuarios.
 
 ### Cómo se usan las tablas
@@ -25,7 +25,7 @@ Sistema para llevar **clientes, llamadas, planes y estadísticas de redes social
 1. Entrá a https://supabase.com, creá una cuenta y tocá **New project**. Elegí un nombre y una contraseña (guardala).
 2. Cuando el proyecto esté listo, en el menú de la izquierda andá a **SQL Editor** → **New query**.
 3. Abrí el archivo [`supabase/schema.sql`](supabase/schema.sql) de este repositorio, copiá todo el contenido, pegalo y tocá **Run**. Debe decir “Success”.
-4. Abrí otra consulta (**New query**) y hacé lo mismo con [`supabase/02_usuarios.sql`](supabase/02_usuarios.sql).
+4. Abrí otra consulta (**New query**) y hacé lo mismo con [`supabase/02_usuarios.sql`](supabase/02_usuarios.sql), y después con [`supabase/03_redes_diario.sql`](supabase/03_redes_diario.sql).
 5. (Recomendado, por seguridad) En **Authentication → Sign In / Providers**, desactivá **Allow new users to sign up**. Los usuarios los crea el administrador desde el sistema.
 6. Tocá el botón **Connect** arriba (o **Project Settings → API Keys**) y copiá dos datos:
    - **Project URL** (algo como `https://abcd.supabase.co`)
