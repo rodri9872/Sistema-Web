@@ -10,14 +10,14 @@ import { MONTHS, num, pct, ratio } from "@/lib/metrics";
 import { downloadPdf } from "@/lib/pdf";
 
 type DayRow = { stat_date: string; new_followers: number | null; new_conversations: number | null };
-type CallRow = { scheduled_date: string | null; close_result: string | null };
+type CallRow = { scheduled_date: string | null; scheduled_on: string | null; close_result: string | null; status_id: number | null };
 type Result = { label: string; followers: number; conversations: number; calls: number; sales: number };
 
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 const legendText = (v: string) => <span style={{ color: "#334155", fontSize: 13 }}>{v}</span>;
 
 export default function ResultadosPage() {
-  const { options } = useData();
+  const { options, callStatuses } = useData();
   const [year, setYear] = useState(Number(today().slice(0, 4)));
   const [days, setDays] = useState<DayRow[]>([]);
   const [calls, setCalls] = useState<CallRow[]>([]);
@@ -29,7 +29,12 @@ export default function ResultadosPage() {
     const to = `${year + 1}-01-01`;
     Promise.all([
       supabase().from("daily_metrics").select("stat_date,new_followers,new_conversations").gte("stat_date", from).lt("stat_date", to),
-      supabase().from("calls").select("scheduled_date,close_result").gte("scheduled_date", from).lt("scheduled_date", to),
+      supabase()
+        .from("calls")
+        .select("scheduled_date,scheduled_on,close_result,status_id")
+        .or(
+          `and(scheduled_date.gte.${from},scheduled_date.lt.${to}),and(scheduled_date.is.null,scheduled_on.gte.${from},scheduled_on.lt.${to})`,
+        ),
     ]).then(([d, c]) => {
       setDays((d.data ?? []) as DayRow[]);
       setCalls((c.data ?? []) as CallRow[]);
@@ -39,6 +44,7 @@ export default function ResultadosPage() {
 
   const { months, total } = useMemo(() => {
     const won = new Set(options.filter((o) => o.list_key === "cierre" && o.is_won).map((o) => o.value));
+    const wonStatus = new Set(callStatuses.filter((s) => s.is_won).map((s) => s.id));
     const months: Result[] = MONTHS.map((m) => ({ label: cap(m), followers: 0, conversations: 0, calls: 0, sales: 0 }));
     for (const d of days) {
       const i = Number(d.stat_date.slice(5, 7)) - 1;
@@ -46,10 +52,11 @@ export default function ResultadosPage() {
       months[i].conversations += Number(d.new_conversations) || 0;
     }
     for (const c of calls) {
-      if (!c.scheduled_date) continue;
-      const i = Number(c.scheduled_date.slice(5, 7)) - 1;
+      const day = c.scheduled_date ?? c.scheduled_on;
+      if (!day) continue;
+      const i = Number(day.slice(5, 7)) - 1;
       months[i].calls += 1;
-      if (c.close_result && won.has(c.close_result)) months[i].sales += 1;
+      if ((c.close_result && won.has(c.close_result)) || (c.status_id !== null && wonStatus.has(c.status_id))) months[i].sales += 1;
     }
     const total = months.reduce(
       (t, m) => ({
@@ -62,7 +69,7 @@ export default function ResultadosPage() {
       { label: "TOTAL AÑO", followers: 0, conversations: 0, calls: 0, sales: 0 },
     );
     return { months, total };
-  }, [days, calls, options]);
+  }, [days, calls, options, callStatuses]);
 
   const cells = (r: Result) => [
     r.followers ? num(r.followers) : "",
@@ -114,7 +121,7 @@ export default function ResultadosPage() {
       </div>
       <p className="text-sm text-slate-600">
         Seguidores y conversaciones salen del registro diario de Redes. Llamadas y ventas salen de Llamadas (por la fecha de la
-        llamada; una venta es un Cierre marcado como venta).
+        llamada; una venta es un Cierre «Sí» o el Estado «Cerrada»).
       </p>
 
       <div className="card overflow-x-auto p-0">

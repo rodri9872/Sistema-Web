@@ -158,7 +158,7 @@ function RegistroDiario({ month }: { month: string }) {
       numCol("sales_closed", "Ventas cerradas", {
         editable: false,
         cellClass: "bg-slate-50 text-slate-700",
-        headerTooltip: "Se calcula solo: llamadas de ese día con Cierre = venta",
+        headerTooltip: "Se calcula solo: llamadas de ese día con Cierre \"Sí\" o Estado \"Cerrada\"",
       }),
       numCol("ticket", "Ticket", { valueFormatter: (p) => money(p.value) }),
       calc("Facturación", billing, (v) => money(v)),
