@@ -94,15 +94,30 @@ export default function LlamadasPage() {
         { width: 190 },
       ),
       {
-        headerName: "Precio del plan",
-        colId: "plan_price",
-        editable: false,
-        width: 120,
+        field: "price",
+        headerName: "Precio",
+        headerTooltip: "Precio de venta. Si lo dejás vacío se muestra el precio del plan (en gris).",
+        cellDataType: "number",
+        width: 115,
         type: "rightAligned",
-        valueGetter: (p) => plans.find((x) => x.id === p.data?.plan_id)?.price ?? null,
-        valueFormatter: (p) => money(p.value),
-        cellClass: "text-slate-600",
+        valueFormatter: (p) => {
+          const own = p.value as number | null;
+          const v = own ?? plans.find((x) => x.id === p.data?.plan_id)?.price ?? null;
+          if (v === null || v === undefined) return "";
+          const n = Number(v).toLocaleString("es-ES", { maximumFractionDigits: 2 });
+          return p.data?.currency === "USD" ? `${n} US$` : `${n} €`;
+        },
+        cellClassRules: { "text-slate-400": (p) => p.value === null || p.value === undefined },
       },
+      selectColumn(
+        "currency",
+        "Moneda",
+        [
+          { value: "EUR", label: "EUR €" },
+          { value: "USD", label: "USD $" },
+        ],
+        { width: 100 },
+      ),
       selectColumn("payment_type", "Tipo de pago", listOptions(options, "tipo_pago"), { width: 130 }),
       { field: "notes", headerName: "Observaciones", width: 260, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true },
       { field: "duration_min", headerName: "Duración (min)", cellDataType: "number", width: 120, hide: true },
@@ -160,7 +175,7 @@ export default function LlamadasPage() {
       </div>
       <EditableGrid
         table="calls"
-        stateKey="calls_v4"
+        stateKey="calls_v5"
         columns={columns}
         exportName="llamadas"
         pdfTitle="Llamadas"
