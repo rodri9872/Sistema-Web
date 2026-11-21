@@ -5,13 +5,13 @@ import type { ColDef } from "ag-grid-community";
 import EditableGrid from "@/components/EditableGrid";
 import { useData } from "@/components/DataProvider";
 import { colorColumn, selectColumn } from "@/lib/grid";
+import UsuariosAdmin from "@/components/UsuariosAdmin";
 
 type Tab = "llamadas" | "clientes" | "campos" | "usuarios";
 
 export default function ConfiguracionPage() {
-  const { me, reload } = useData();
+  const { reload } = useData();
   const [tab, setTab] = useState<Tab>("llamadas");
-  const isAdmin = me?.role === "admin";
   const onChange = useCallback(() => {
     reload();
   }, [reload]);
@@ -57,24 +57,6 @@ export default function ConfiguracionPage() {
       { field: "active", headerName: "Visible", cellDataType: "boolean", maxWidth: 110 },
     ],
     [],
-  );
-
-  const userCols = useMemo<ColDef[]>(
-    () => [
-      { field: "full_name", headerName: "Nombre", minWidth: 200 },
-      { field: "email", headerName: "Correo", editable: false, minWidth: 220 },
-      selectColumn(
-        "role",
-        "Rol",
-        [
-          { value: "admin", label: "Administrador" },
-          { value: "usuario", label: "Usuario" },
-        ],
-        { editable: isAdmin },
-      ),
-      { field: "active", headerName: "Activo", cellDataType: "boolean", maxWidth: 110, editable: isAdmin },
-    ],
-    [isAdmin],
   );
 
   const tabs: { key: Tab; label: string }[] = [
@@ -136,15 +118,7 @@ export default function ConfiguracionPage() {
           />
         </>
       )}
-      {tab === "usuarios" && (
-        <>
-          <p className="text-sm text-slate-600">
-            Para sumar un usuario, pedile que entre al sistema y toque “Crear cuenta”. Va a aparecer acá y vas a poder asignarle clientes.
-            {isAdmin ? " Como administrador podés cambiar roles." : " Solo un administrador puede cambiar roles."}
-          </p>
-          <EditableGrid fit key="u" table="profiles" columns={userCols} orderBy={{ column: "full_name", ascending: true }} height={h} canAdd={false} canDelete={false} onChange={onChange} />
-        </>
-      )}
+      {tab === "usuarios" && <UsuariosAdmin height="calc(100vh - 330px)" />}
     </div>
   );
 }

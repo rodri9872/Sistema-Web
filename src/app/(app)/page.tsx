@@ -160,7 +160,7 @@ export default function InicioPage() {
           <tbody className="tabular-nums">
             {byUser.map((r) => (
               <tr key={r.p.id} className="border-t border-slate-100">
-                <td className="py-1.5">{r.p.full_name ?? r.p.email}</td>
+                <td className="py-1.5">{r.p.full_name ?? r.p.username}</td>
                 <td className="py-1.5 text-right">{r.clients}</td>
                 <td className="py-1.5 text-right">{r.total}</td>
                 <td className="py-1.5 text-right">{r.done}</td>

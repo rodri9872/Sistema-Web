@@ -25,8 +25,9 @@ Sistema para llevar **clientes, llamadas, planes y estadísticas de redes social
 1. Entrá a https://supabase.com, creá una cuenta y tocá **New project**. Elegí un nombre y una contraseña (guardala).
 2. Cuando el proyecto esté listo, en el menú de la izquierda andá a **SQL Editor** → **New query**.
 3. Abrí el archivo [`supabase/schema.sql`](supabase/schema.sql) de este repositorio, copiá todo el contenido, pegalo y tocá **Run**. Debe decir “Success”.
-4. (Recomendado) En **Authentication → Sign In / Providers → Email**, desactivá **Confirm email** para que los usuarios puedan entrar sin confirmar el correo.
-5. Tocá el botón **Connect** arriba (o **Project Settings → API Keys**) y copiá dos datos:
+4. Abrí otra consulta (**New query**) y hacé lo mismo con [`supabase/02_usuarios.sql`](supabase/02_usuarios.sql).
+5. (Recomendado, por seguridad) En **Authentication → Sign In / Providers**, desactivá **Allow new users to sign up**. Los usuarios los crea el administrador desde el sistema.
+6. Tocá el botón **Connect** arriba (o **Project Settings → API Keys**) y copiá dos datos:
    - **Project URL** (algo como `https://abcd.supabase.co`)
    - **Publishable key** (empieza con `sb_publishable_`; si ves “anon key”, sirve igual)
 
@@ -39,7 +40,11 @@ Sistema para llevar **clientes, llamadas, planes y estadísticas de redes social
 4. Tocá **Deploy**. En un par de minutos te da la dirección de tu sistema.
 
 ### 3. Primer ingreso
-Entrá a la dirección, tocá **Crear cuenta** y registrate. **El primer usuario queda como administrador.** Los demás se registran igual y aparecen en Configuración → Usuarios.
+Entrá a la dirección. La primera vez aparece **Configuración inicial**: elegí tu nombre, un **usuario** (por ejemplo `rodrigo`) y una contraseña. Ese es el **superusuario** (administrador).
+
+Después, en **Configuración → Usuarios**, el administrador crea a los demás con **+ Nuevo usuario** (usuario, nombre, contraseña y rol). También puede cambiarles la contraseña, desactivarlos o borrarlos. Cada uno puede cambiar su propia contraseña desde el menú de la izquierda.
+
+No se usa correo electrónico: todos ingresan con usuario y contraseña.
 
 ---
 
@@ -53,5 +58,6 @@ npm run dev
 ```
 
 - `supabase/schema.sql`: tablas, seguridad (RLS) y datos iniciales.
+- `supabase/02_usuarios.sql`: ingreso por nombre de usuario (por dentro `usuario@usuarios.local`), superusuario inicial y funciones de administración de usuarios.
 - `src/components/EditableGrid.tsx`: la grilla tipo Excel reutilizable (guarda cada celda en Supabase).
 - `src/lib/grid.tsx`: columnas de lista, colores y campos personalizados (se guardan en la columna `custom` jsonb).

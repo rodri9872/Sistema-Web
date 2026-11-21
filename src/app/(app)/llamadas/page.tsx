@@ -43,7 +43,7 @@ export default function LlamadasPage() {
       selectColumn(
         "user_id",
         "Usuario",
-        profiles.map((p) => ({ value: p.id, label: p.full_name ?? p.email ?? "?" })),
+        profiles.map((p) => ({ value: p.id, label: p.full_name ?? p.username ?? "?" })),
       ),
       { field: "duration_min", headerName: "Duración (min)", cellDataType: "number", maxWidth: 140 },
       { field: "result", headerName: "Resultado" },

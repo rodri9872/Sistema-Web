@@ -6,6 +6,8 @@ import { DataProvider, useData } from "@/components/DataProvider";
 import { isConfigured } from "@/lib/supabase/env";
 import { supabase } from "@/lib/supabase/client";
 import SetupNotice from "@/components/SetupNotice";
+import CambiarClave from "@/components/CambiarClave";
+import { useState } from "react";
 
 const NAV = [
   { href: "/", label: "Inicio", icon: "🏠" },
@@ -28,6 +30,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const { me, loading } = useData();
+  const [changePw, setChangePw] = useState(false);
   const logout = async () => {
     await supabase().auth.signOut();
     window.location.href = "/login";
@@ -55,12 +58,20 @@ function Shell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="border-t border-slate-200 p-3 text-sm">
           <div className="truncate font-medium">{me?.full_name ?? "…"}</div>
-          <div className="truncate text-xs text-slate-500">{me?.role === "admin" ? "Administrador" : "Usuario"}</div>
-          <button onClick={logout} className="mt-2 text-xs text-slate-500 hover:underline">
-            Cerrar sesión
-          </button>
+          <div className="truncate text-xs text-slate-500">
+            @{me?.username ?? "…"} · {me?.role === "admin" ? "Administrador" : "Usuario"}
+          </div>
+          <div className="mt-2 flex flex-col items-start gap-1">
+            <button onClick={() => setChangePw(true)} className="text-xs text-slate-500 hover:underline">
+              Cambiar mi contraseña
+            </button>
+            <button onClick={logout} className="text-xs text-slate-500 hover:underline">
+              Cerrar sesión
+            </button>
+          </div>
         </div>
       </aside>
+      {changePw && <CambiarClave onClose={() => setChangePw(false)} />}
       <main className="min-w-0 flex-1 p-5">{loading ? <p className="text-slate-500">Cargando…</p> : children}</main>
     </div>
   );
