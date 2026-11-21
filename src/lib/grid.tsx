@@ -87,7 +87,7 @@ export function customFieldColumns(fields: CustomField[], entity: "clients" | "c
 }
 
 export const money = (v: unknown) =>
-  v === null || v === undefined || v === "" ? "" : "$ " + Number(v).toLocaleString("es-AR", { maximumFractionDigits: 2 });
+  v === null || v === undefined || v === "" ? "" : Number(v).toLocaleString("es-ES", { maximumFractionDigits: 2 }) + " €";
 
 export const today = () => {
   const d = new Date();
