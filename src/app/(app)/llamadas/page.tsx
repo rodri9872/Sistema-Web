@@ -18,6 +18,10 @@ export default function LlamadasPage() {
   const [onlyMine, setOnlyMine] = useState(false);
   const [status, setStatus] = useState<number | null>(null);
   const [range, setRange] = useState<Range>("todas");
+  const [dateField, setDateField] = useState<"scheduled_date" | "scheduled_on">("scheduled_date");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [month, setMonth] = useState("");
 
   const statusById = useMemo(() => new Map(callStatuses.map((s) => [s.id, s])), [callStatuses]);
 
@@ -127,12 +131,16 @@ export default function LlamadasPage() {
   }, [plans, profiles, callStatuses, customFields, options]);
 
   const externalFilter = useMemo(() => {
-    if (!onlyMine && status === null && range === "todas") return undefined;
+    if (!onlyMine && status === null && range === "todas" && !from && !to) return undefined;
     return (r: Record<string, unknown>) => {
       const t = today();
       const in7 = new Date(new Date(t).getTime() + 7 * 86400000).toISOString().slice(0, 10);
       if (onlyMine && r.user_id !== me?.id && r.setter_id !== me?.id) return false;
       if (status !== null && r.status_id !== status) return false;
+      if (from || to) {
+        const fd = (r[dateField] as string | null) ?? "";
+        if (!fd || (from && fd < from) || (to && fd > to)) return false;
+      }
       const d = (r.scheduled_date as string | null) ?? "";
       if (range === "hoy" && d !== t) return false;
       if (range === "semana" && (d < t || d > in7)) return false;
@@ -142,7 +150,24 @@ export default function LlamadasPage() {
       }
       return true;
     };
-  }, [onlyMine, status, range, me?.id, statusById]);
+  }, [onlyMine, status, range, me?.id, statusById, from, to, dateField]);
+
+  const pickMonth = (ym: string) => {
+    setMonth(ym);
+    if (!ym) {
+      setFrom("");
+      setTo("");
+      return;
+    }
+    const [y, m] = ym.split("-").map(Number);
+    setFrom(`${ym}-01`);
+    setTo(`${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`);
+  };
+  const clearDates = () => {
+    setMonth("");
+    setFrom("");
+    setTo("");
+  };
 
   if (loading) return <p className="text-slate-500">Cargando…</p>;
 
@@ -173,14 +198,60 @@ export default function LlamadasPage() {
             </button>
           ))}
       </div>
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-2">
+        <label className="flex flex-col text-xs text-slate-500">
+          Filtrar por
+          <select className="input mt-0.5" value={dateField} onChange={(e) => setDateField(e.target.value as typeof dateField)}>
+            <option value="scheduled_date">Fecha de la llamada</option>
+            <option value="scheduled_on">Día que se agendó</option>
+          </select>
+        </label>
+        <label className="flex flex-col text-xs text-slate-500">
+          Mes
+          <input type="month" className="input mt-0.5" value={month} onChange={(e) => pickMonth(e.target.value)} />
+        </label>
+        <label className="flex flex-col text-xs text-slate-500">
+          Desde
+          <input
+            type="date"
+            className="input mt-0.5"
+            value={from}
+            onChange={(e) => {
+              setFrom(e.target.value);
+              setMonth("");
+            }}
+          />
+        </label>
+        <label className="flex flex-col text-xs text-slate-500">
+          Hasta
+          <input
+            type="date"
+            className="input mt-0.5"
+            value={to}
+            onChange={(e) => {
+              setTo(e.target.value);
+              setMonth("");
+            }}
+          />
+        </label>
+        {(from || to) && (
+          <button className="btn" onClick={clearDates}>
+            Quitar fechas
+          </button>
+        )}
+      </div>
       <EditableGrid
         table="calls"
         stateKey="calls_v5"
         columns={columns}
         exportName="llamadas"
-        pdfTitle="Llamadas"
+        pdfTitle={
+          from || to
+            ? `Llamadas · ${from ? from.split("-").reverse().join("/") : "…"} al ${to ? to.split("-").reverse().join("/") : "…"}`
+            : "Llamadas"
+        }
         orderBy={{ column: "scheduled_on", ascending: false }}
-        height="calc(100vh - 260px)"
+        height="calc(100vh - 330px)"
         newRow={() => ({
           scheduled_on: today(),
           setter_id: me?.id ?? null,
