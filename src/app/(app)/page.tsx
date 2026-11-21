@@ -96,7 +96,7 @@ export default function InicioPage() {
           const body = (
             <div className="card h-full">
               <div className="text-xs text-slate-500">{k.label}</div>
-              <div className="mt-1 text-3xl font-semibold tabular-nums">{k.value}</div>
+              <div className="mt-1 text-2xl font-semibold sm:text-3xl tabular-nums">{k.value}</div>
             </div>
           );
           return k.href ? (
@@ -127,7 +127,7 @@ export default function InicioPage() {
           </ResponsiveContainer>
         </div>
 
-        <div className="card">
+        <div className="card overflow-x-auto">
           <h2 className="mb-2 text-sm font-medium">Próximas llamadas</h2>
           {upcoming.length === 0 ? (
             <p className="text-sm text-slate-500">No hay llamadas pendientes.</p>
@@ -154,7 +154,7 @@ export default function InicioPage() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card overflow-x-auto">
         <h2 className="mb-2 text-sm font-medium">Resumen por usuario (mes)</h2>
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-slate-500">

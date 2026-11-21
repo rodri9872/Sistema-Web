@@ -163,6 +163,7 @@ export default function LlamadasPage() {
         stateKey="calls_v4"
         columns={columns}
         exportName="llamadas"
+        pdfTitle="Llamadas"
         orderBy={{ column: "scheduled_on", ascending: false }}
         height="calc(100vh - 260px)"
         newRow={() => ({

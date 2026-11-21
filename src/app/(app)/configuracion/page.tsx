@@ -88,7 +88,7 @@ export default function ConfiguracionPage() {
   return (
     <div className="space-y-3">
       <h1 className="page-title">Configuración</h1>
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="-mx-3 flex gap-1 overflow-x-auto whitespace-nowrap border-b border-slate-200 px-3 md:mx-0 md:px-0">
         {tabs.map((t) => (
           <button
             key={t.key}

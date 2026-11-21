@@ -46,13 +46,13 @@ export default function RedesPage() {
             <button className="btn" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Mes anterior">
               ‹
             </button>
-            <span className="w-40 text-center font-medium">{range.label}</span>
+            <span className="w-32 text-center font-medium sm:w-40">{range.label}</span>
             <button className="btn" onClick={() => setMonth(shiftMonth(month, 1))} aria-label="Mes siguiente">
               ›
             </button>
             <input
               type="month"
-              className="input ml-2"
+              className="input ml-1 hidden sm:block"
               value={month}
               onChange={(e) => e.target.value && setMonth(e.target.value)}
               title="Elegir mes"
@@ -60,7 +60,7 @@ export default function RedesPage() {
           </div>
         )}
       </div>
-      <div className="flex gap-1 border-b border-slate-200">
+      <div className="-mx-3 flex gap-1 overflow-x-auto whitespace-nowrap border-b border-slate-200 px-3 md:mx-0 md:px-0">
         {tabs.map((t) => (
           <button
             key={t.key}
@@ -184,6 +184,7 @@ function RegistroDiario({ month }: { month: string }) {
         canAdd={false}
         canDelete={false}
         exportName={`redes-${month}`}
+        pdfTitle={`Redes sociales · ${range.label}`}
         height="calc(100vh - 290px)"
       />
     </div>
