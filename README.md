@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema Web
 
-## Getting Started
+Sistema para llevar **clientes, llamadas, planes y estadísticas de redes sociales**, con tablas que se usan como un Excel.
 
-First, run the development server:
+- **Inicio**: llamadas pendientes de hoy, del mes, concretadas, cierres, próximas llamadas y resumen por usuario.
+- **Clientes**: plan, usuario a cargo, estado, notas y las columnas extra que quieras.
+- **Llamadas**: fecha, hora, cliente, estado (agendada, concretada, cerrada…), usuario, resultado. Filtros: Hoy, Próximos 7 días, Atrasadas, Solo mías.
+- **Planes**: nombre, precio y descripción.
+- **Redes sociales**: cuentas, carga diaria (seguidores, conversaciones, mensajes, alcance) y gráficos.
+- **Configuración**: estados de llamadas y de clientes, campos personalizados (columnas nuevas) y usuarios.
+
+### Cómo se usan las tablas
+- Doble clic o empezar a escribir para editar. Se guarda solo.
+- Enter baja a la fila de abajo, como en Excel.
+- Ctrl+C / Ctrl+V copia y pega, también bloques enteros copiados desde Excel.
+- Ctrl+Z deshace. Supr borra la celda.
+- Arrastrá los encabezados para reordenar columnas o cambiar el ancho; el sistema lo recuerda.
+- Botón “Columnas” para ocultar o mostrar columnas. “Exportar a Excel (CSV)” descarga la tabla.
+
+---
+
+## Puesta en marcha (una sola vez)
+
+### 1. Crear la base de datos en Supabase (gratis)
+1. Entrá a https://supabase.com, creá una cuenta y tocá **New project**. Elegí un nombre y una contraseña (guardala).
+2. Cuando el proyecto esté listo, en el menú de la izquierda andá a **SQL Editor** → **New query**.
+3. Abrí el archivo [`supabase/schema.sql`](supabase/schema.sql) de este repositorio, copiá todo el contenido, pegalo y tocá **Run**. Debe decir “Success”.
+4. (Recomendado) En **Authentication → Sign In / Providers → Email**, desactivá **Confirm email** para que los usuarios puedan entrar sin confirmar el correo.
+5. Tocá el botón **Connect** arriba (o **Project Settings → API Keys**) y copiá dos datos:
+   - **Project URL** (algo como `https://abcd.supabase.co`)
+   - **Publishable key** (empieza con `sb_publishable_`; si ves “anon key”, sirve igual)
+
+### 2. Publicar la web en Vercel (gratis)
+1. Entrá a https://vercel.com e iniciá sesión con tu cuenta de GitHub.
+2. **Add New → Project**, elegí el repositorio **Sistema-Web** y tocá **Import**.
+3. En **Environment Variables** cargá:
+   - `NEXT_PUBLIC_SUPABASE_URL` = la Project URL
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` = la Publishable key
+4. Tocá **Deploy**. En un par de minutos te da la dirección de tu sistema.
+
+### 3. Primer ingreso
+Entrá a la dirección, tocá **Crear cuenta** y registrate. **El primer usuario queda como administrador.** Los demás se registran igual y aparecen en Configuración → Usuarios.
+
+---
+
+## Para programadores
+Next.js 16 + TypeScript, Supabase (Postgres + Auth), AG Grid Community, Recharts.
 
 ```bash
+cp .env.example .env.local   # completar los dos valores
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `supabase/schema.sql`: tablas, seguridad (RLS) y datos iniciales.
+- `src/components/EditableGrid.tsx`: la grilla tipo Excel reutilizable (guarda cada celda en Supabase).
+- `src/lib/grid.tsx`: columnas de lista, colores y campos personalizados (se guardan en la columna `custom` jsonb).
