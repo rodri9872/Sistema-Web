@@ -25,7 +25,7 @@ Sistema para llevar **clientes, llamadas, planes y estadísticas de redes social
 1. Entrá a https://supabase.com, creá una cuenta y tocá **New project**. Elegí un nombre y una contraseña (guardala).
 2. Cuando el proyecto esté listo, en el menú de la izquierda andá a **SQL Editor** → **New query**.
 3. Abrí el archivo [`supabase/schema.sql`](supabase/schema.sql) de este repositorio, copiá todo el contenido, pegalo y tocá **Run**. Debe decir “Success”.
-4. Abrí otra consulta (**New query**) y hacé lo mismo con [`supabase/02_usuarios.sql`](supabase/02_usuarios.sql), después con [`supabase/03_redes_diario.sql`](supabase/03_redes_diario.sql) [`supabase/04_permisos.sql`](supabase/04_permisos.sql) (da permiso a la aplicación para usar las tablas), [`supabase/05_llamadas.sql`](supabase/05_llamadas.sql) y [`supabase/06_plan_en_llamadas.sql`](supabase/06_plan_en_llamadas.sql).
+4. Abrí otra consulta (**New query**) y hacé lo mismo con [`supabase/02_usuarios.sql`](supabase/02_usuarios.sql), después con [`supabase/03_redes_diario.sql`](supabase/03_redes_diario.sql) [`supabase/04_permisos.sql`](supabase/04_permisos.sql) (da permiso a la aplicación para usar las tablas), [`supabase/05_llamadas.sql`](supabase/05_llamadas.sql) , [`supabase/06_plan_en_llamadas.sql`](supabase/06_plan_en_llamadas.sql) y [`supabase/07_ventas_automaticas.sql`](supabase/07_ventas_automaticas.sql).
 5. (Recomendado, por seguridad) En **Authentication → Sign In / Providers**, desactivá **Allow new users to sign up**. Los usuarios los crea el administrador desde el sistema.
 6. Tocá el botón **Connect** arriba (o **Project Settings → API Keys**) y copiá dos datos:
    - **Project URL** (algo como `https://abcd.supabase.co`)
