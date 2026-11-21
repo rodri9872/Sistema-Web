@@ -13,6 +13,7 @@ export default function InicioPage() {
   const { me, clients, profiles, callStatuses, options, loading } = useData();
   const [calls, setCalls] = useState<Call[]>([]);
   const [month, setMonth] = useState(today().slice(0, 7));
+  const [booked, setBooked] = useState(0);
 
   useEffect(() => {
     const [y, m] = month.split("-").map(Number);
@@ -20,6 +21,12 @@ export default function InicioPage() {
     const to = new Date(y, m, 1).toISOString().slice(0, 10);
     const t = today();
     // Llamadas del mes elegido + pendientes desde hoy en adelante
+    supabase()
+      .from("calls")
+      .select("id", { count: "exact", head: true })
+      .gte("scheduled_on", from)
+      .lt("scheduled_on", to)
+      .then(({ count }) => setBooked(count ?? 0));
     Promise.all([
       supabase().from("calls").select("*").gte("scheduled_date", from).lt("scheduled_date", to),
       supabase().from("calls").select("*").gte("scheduled_date", t).order("scheduled_date").order("scheduled_time").limit(200),
@@ -60,19 +67,18 @@ export default function InicioPage() {
         total: own.length,
         done: own.filter(isDone).length,
         won: own.filter(isWon).length,
-        clients: clients.filter((c) => c.owner_id === p.id).length,
       };
     })
-    .filter((r) => r.total || r.clients || r.set);
+    .filter((r) => r.total || r.set);
 
   if (loading) return <p className="text-slate-500">Cargando…</p>;
 
   const tiles = [
     { label: "Llamadas pendientes hoy", value: pendingToday.length, href: "/llamadas" },
-    { label: "Llamadas del mes", value: inMonth.length },
+    { label: "Llamadas del mes (por fecha de llamada)", value: inMonth.length },
     { label: "Realizadas en el mes", value: doneMonth.length },
     { label: "Cierres / ventas del mes", value: wonMonth.length },
-    { label: "Clientes", value: clients.length, href: "/clientes" },
+    { label: "Agendadas este mes", value: booked, href: "/llamadas" },
   ];
 
   return (
@@ -154,7 +160,6 @@ export default function InicioPage() {
           <thead className="text-left text-xs text-slate-500">
             <tr>
               <th className="py-1">Usuario</th>
-              <th className="py-1 text-right">Clientes a cargo</th>
               <th className="py-1 text-right">Agendó (setter)</th>
               <th className="py-1 text-right">Llamadas (closer)</th>
               <th className="py-1 text-right">Concretadas</th>
@@ -166,7 +171,6 @@ export default function InicioPage() {
             {byUser.map((r) => (
               <tr key={r.p.id} className="border-t border-slate-100">
                 <td className="py-1.5">{r.p.full_name ?? r.p.username}</td>
-                <td className="py-1.5 text-right">{r.clients}</td>
                 <td className="py-1.5 text-right">{r.set}</td>
                 <td className="py-1.5 text-right">{r.total}</td>
                 <td className="py-1.5 text-right">{r.done}</td>
@@ -176,7 +180,7 @@ export default function InicioPage() {
             ))}
             {byUser.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-2 text-slate-500">
+                <td colSpan={6} className="py-2 text-slate-500">
                   Sin datos este mes.
                 </td>
               </tr>
