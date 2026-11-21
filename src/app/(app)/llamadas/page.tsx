@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import EditableGrid from "@/components/EditableGrid";
 import { useData } from "@/components/DataProvider";
-import { Pill, customFieldColumns, selectColumn, today } from "@/lib/grid";
+import { Pill, customFieldColumns, money, selectColumn, today } from "@/lib/grid";
+import { COUNTRIES, findCountry, regionOf } from "@/lib/paises";
 import type { OptionItem } from "@/lib/types";
 
 type Range = "todas" | "hoy" | "semana" | "atrasadas";
@@ -31,7 +32,32 @@ export default function LlamadasPage() {
       },
       selectColumn("setter_id", "Setter", people, { width: 140 }),
       { field: "contact_name", headerName: "Nombre", width: 180 },
-      { field: "country", headerName: "País", width: 130 },
+      selectColumn(
+        "country",
+        "País",
+        COUNTRIES.map((c) => ({ value: c.name, label: c.name })),
+        {
+          width: 160,
+          // Acepta formas comunes (EEUU, Mexico...) y no pierde lo que no está en la lista
+          valueParser: (p) => {
+            const v = String(p.newValue ?? "").trim();
+            if (!v) return null;
+            return findCountry(v)?.name ?? v;
+          },
+          valueFormatter: (p) => p.value ?? "",
+          filterValueGetter: (p) => p.data?.country ?? "",
+          getQuickFilterText: (p) => p.value ?? "",
+          comparator: (a, b) => String(a ?? "").localeCompare(String(b ?? "")),
+        },
+      ),
+      {
+        headerName: "Región",
+        colId: "region",
+        editable: false,
+        width: 150,
+        valueGetter: (p) => regionOf(p.data?.country),
+        cellClass: "text-slate-600",
+      },
       selectColumn("channel", "Vía", listOptions(options, "via"), { width: 120 }),
       selectColumn(
         "status_id",
@@ -64,9 +90,19 @@ export default function LlamadasPage() {
       selectColumn(
         "plan_id",
         "Plan",
-        plans.filter((p) => p.active).map((p) => ({ value: p.id, label: p.name })),
-        { width: 140 },
+        plans.filter((p) => p.active).map((p) => ({ value: p.id, label: p.price != null ? `${p.name} · ${money(p.price)}` : p.name })),
+        { width: 190 },
       ),
+      {
+        headerName: "Precio del plan",
+        colId: "plan_price",
+        editable: false,
+        width: 120,
+        type: "rightAligned",
+        valueGetter: (p) => plans.find((x) => x.id === p.data?.plan_id)?.price ?? null,
+        valueFormatter: (p) => money(p.value),
+        cellClass: "text-slate-600",
+      },
       selectColumn("payment_type", "Tipo de pago", listOptions(options, "tipo_pago"), { width: 130 }),
       { field: "notes", headerName: "Observaciones", width: 260, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true },
       { field: "duration_min", headerName: "Duración (min)", cellDataType: "number", width: 120, hide: true },
@@ -124,7 +160,7 @@ export default function LlamadasPage() {
       </div>
       <EditableGrid
         table="calls"
-        stateKey="calls_v3"
+        stateKey="calls_v4"
         columns={columns}
         exportName="llamadas"
         orderBy={{ column: "scheduled_on", ascending: false }}

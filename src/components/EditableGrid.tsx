@@ -295,8 +295,10 @@ export default function EditableGrid({
       }
       const lines = text.replace(/\r/g, "").split("\n");
       if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
-      const cols = api.getAllDisplayedColumns();
-      const startCol = cols.indexOf(e.column as Column);
+      // Las columnas calculadas (sin campo propio) se saltean al pegar
+      const all = api.getAllDisplayedColumns();
+      const cols = all.slice(all.indexOf(e.column as Column)).filter((c) => c.getColDef().field);
+      const startCol = 0;
       const startRow = e.rowIndex ?? 0;
       lines.forEach((line, r) => {
         const node = api.getDisplayedRowAtIndex(startRow + r) as IRowNode<Row> | undefined;
