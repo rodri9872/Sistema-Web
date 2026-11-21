@@ -10,7 +10,7 @@ import { AXIS, GRID } from "@/lib/palette";
 import type { Call } from "@/lib/types";
 
 export default function InicioPage() {
-  const { me, clients, profiles, callStatuses, loading } = useData();
+  const { me, clients, profiles, callStatuses, options, loading } = useData();
   const [calls, setCalls] = useState<Call[]>([]);
   const [month, setMonth] = useState(today().slice(0, 7));
 
@@ -34,13 +34,16 @@ export default function InicioPage() {
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
   const userById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
 
+  const wonValues = new Set(options.filter((o) => o.list_key === "cierre" && o.is_won).map((o) => o.value));
+  const isDone = (c: Call) => c.completed === true || Boolean(statusById.get(c.status_id ?? -1)?.is_final);
+  const isWon = (c: Call) => (c.close_result ? wonValues.has(c.close_result) : false) || Boolean(statusById.get(c.status_id ?? -1)?.is_won);
   const t = today();
   const inMonth = calls.filter((c) => c.scheduled_date?.startsWith(month));
-  const pendingToday = calls.filter((c) => c.scheduled_date === t && !statusById.get(c.status_id ?? -1)?.is_final);
-  const doneMonth = inMonth.filter((c) => statusById.get(c.status_id ?? -1)?.is_final);
-  const wonMonth = inMonth.filter((c) => statusById.get(c.status_id ?? -1)?.is_won);
+  const pendingToday = calls.filter((c) => c.scheduled_date === t && !isDone(c));
+  const doneMonth = inMonth.filter(isDone);
+  const wonMonth = inMonth.filter(isWon);
   const upcoming = calls
-    .filter((c) => (c.scheduled_date ?? "") >= t && !statusById.get(c.status_id ?? -1)?.is_final)
+    .filter((c) => (c.scheduled_date ?? "") >= t && !isDone(c))
     .sort((a, b) => `${a.scheduled_date}${a.scheduled_time ?? ""}`.localeCompare(`${b.scheduled_date}${b.scheduled_time ?? ""}`))
     .slice(0, 10);
 
@@ -53,20 +56,21 @@ export default function InicioPage() {
       const own = inMonth.filter((c) => c.user_id === p.id);
       return {
         p,
+        set: inMonth.filter((c) => c.setter_id === p.id).length,
         total: own.length,
-        done: own.filter((c) => statusById.get(c.status_id ?? -1)?.is_final).length,
-        won: own.filter((c) => statusById.get(c.status_id ?? -1)?.is_won).length,
+        done: own.filter(isDone).length,
+        won: own.filter(isWon).length,
         clients: clients.filter((c) => c.owner_id === p.id).length,
       };
     })
-    .filter((r) => r.total || r.clients);
+    .filter((r) => r.total || r.clients || r.set);
 
   if (loading) return <p className="text-slate-500">Cargando…</p>;
 
   const tiles = [
     { label: "Llamadas pendientes hoy", value: pendingToday.length, href: "/llamadas" },
     { label: "Llamadas del mes", value: inMonth.length },
-    { label: "Concretadas en el mes", value: doneMonth.length },
+    { label: "Realizadas en el mes", value: doneMonth.length },
     { label: "Cierres / ventas del mes", value: wonMonth.length },
     { label: "Clientes", value: clients.length, href: "/clientes" },
   ];
@@ -132,7 +136,7 @@ export default function InicioPage() {
                         {c.scheduled_date === t ? "Hoy" : c.scheduled_date?.split("-").reverse().slice(0, 2).join("/")}{" "}
                         {c.scheduled_time ?? ""}
                       </td>
-                      <td className="py-1.5 pr-2">{clientById.get(c.client_id ?? -1)?.name ?? "—"}</td>
+                      <td className="py-1.5 pr-2">{c.contact_name || clientById.get(c.client_id ?? -1)?.name || "—"}</td>
                       <td className="py-1.5 pr-2 text-slate-500">{userById.get(c.user_id ?? "")?.full_name ?? ""}</td>
                       <td className="py-1.5">{st && <Pill label={st.name} color={st.color} />}</td>
                     </tr>
@@ -151,7 +155,8 @@ export default function InicioPage() {
             <tr>
               <th className="py-1">Usuario</th>
               <th className="py-1 text-right">Clientes a cargo</th>
-              <th className="py-1 text-right">Llamadas</th>
+              <th className="py-1 text-right">Agendó (setter)</th>
+              <th className="py-1 text-right">Llamadas (closer)</th>
               <th className="py-1 text-right">Concretadas</th>
               <th className="py-1 text-right">Cierres</th>
               <th className="py-1 text-right">% cierre</th>
@@ -162,6 +167,7 @@ export default function InicioPage() {
               <tr key={r.p.id} className="border-t border-slate-100">
                 <td className="py-1.5">{r.p.full_name ?? r.p.username}</td>
                 <td className="py-1.5 text-right">{r.clients}</td>
+                <td className="py-1.5 text-right">{r.set}</td>
                 <td className="py-1.5 text-right">{r.total}</td>
                 <td className="py-1.5 text-right">{r.done}</td>
                 <td className="py-1.5 text-right">{r.won}</td>
@@ -170,7 +176,7 @@ export default function InicioPage() {
             ))}
             {byUser.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-2 text-slate-500">
+                <td colSpan={7} className="py-2 text-slate-500">
                   Sin datos este mes.
                 </td>
               </tr>

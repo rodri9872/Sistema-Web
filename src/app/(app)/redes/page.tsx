@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef, ColGroupDef, ValueGetterParams } from "ag-grid-community";
+import type { ColDef, ValueGetterParams } from "ag-grid-community";
 import { Bar, BarChart, CartesianGrid, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import EditableGrid from "@/components/EditableGrid";
 import { money, today } from "@/lib/grid";
@@ -107,7 +107,7 @@ function RegistroDiario({ month }: { month: string }) {
     };
   }, []);
 
-  const columns = useMemo<(ColDef | ColGroupDef)[]>(() => {
+  const columns = useMemo<ColDef[]>(() => {
     const d = (p: ValueGetterParams) => (p.data ?? {}) as Partial<Daily>;
     const numCol = (field: string, headerName: string, extra: Partial<ColDef> = {}): ColDef => ({
       field,
@@ -150,44 +150,17 @@ function RegistroDiario({ month }: { month: string }) {
       numCol("new_conversations", "Nuevas conversaciones", { width: 140 }),
       numCol("follow_ups", "Follow ups"),
       calc("Total conversaciones del día", totalConversations, num),
-      {
-        headerName: "Propuesta agenda",
-        children: [
-          numCol("proposals", "Cantidad", { width: 110 }),
-          calc("% s/ conversaciones (prop.)", (r) => ratio(Number(r.proposals) || 0, totalConversations(r)), pct),
-        ],
-      },
-      {
-        headerName: "Llamadas agendadas",
-        children: [
-          numCol("calls_scheduled", "Cantidad ", { width: 110 }),
-          calc("% s/ propuestas", (r) => ratio(Number(r.calls_scheduled) || 0, Number(r.proposals) || 0), pct),
-          calc("% s/ conversaciones", (r) => ratio(Number(r.calls_scheduled) || 0, totalConversations(r)), pct),
-        ],
-      },
+      numCol("proposals", "Propuestas de agenda"),
+      calc("% propuestas s/ conversaciones", (r) => ratio(Number(r.proposals) || 0, totalConversations(r)), pct),
+      numCol("calls_scheduled", "Llamadas agendadas"),
+      calc("% agendadas s/ propuestas", (r) => ratio(Number(r.calls_scheduled) || 0, Number(r.proposals) || 0), pct),
+      calc("% agendadas s/ conversaciones", (r) => ratio(Number(r.calls_scheduled) || 0, totalConversations(r)), pct),
       numCol("sales_closed", "Ventas cerradas"),
       numCol("ticket", "Ticket", { valueFormatter: (p) => money(p.value) }),
       calc("Facturación", billing, (v) => money(v)),
       { field: "notes", headerName: "Notas", width: 220 },
     ];
   }, []);
-
-  // Encabezados más cortos dentro de los grupos
-  const shortHeaders = useMemo(
-    () =>
-      columns.map((c) =>
-        "children" in c
-          ? {
-              ...c,
-              children: c.children.map((ch) => {
-                const h = (ch as ColDef).headerName ?? "";
-                return { ...ch, headerName: h.startsWith("% s/ conversaciones") ? "% s/ conversaciones" : h.trim() };
-              }),
-            }
-          : c,
-      ),
-    [columns],
-  );
 
   return (
     <div className="space-y-2">
@@ -198,8 +171,8 @@ function RegistroDiario({ month }: { month: string }) {
       <EditableGrid
         key={month}
         table="daily_metrics"
-        stateKey="daily_metrics_v1"
-        columns={shortHeaders as ColDef[]}
+        stateKey="daily_metrics_v2"
+        columns={columns}
         range={gridRange}
         beforeLoad={beforeLoad}
         totals={totals}

@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import type { ClientLite, CustomField, Plan, Profile, SocialAccount, Status } from "@/lib/types";
+import type { ClientLite, CustomField, OptionItem, Plan, Profile, SocialAccount, Status } from "@/lib/types";
 
 type Lookups = {
   me: Profile | null;
@@ -13,6 +13,7 @@ type Lookups = {
   customFields: CustomField[];
   clients: ClientLite[];
   socialAccounts: SocialAccount[];
+  options: OptionItem[];
   loading: boolean;
   reload: () => Promise<void>;
 };
@@ -35,12 +36,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     customFields: [],
     clients: [],
     socialAccounts: [],
+    options: [],
     loading: true,
   });
 
   const reload = useCallback(async () => {
     const sb = supabase();
-    const [{ data: auth }, profiles, plans, callStatuses, clientStatuses, customFields, clients, socialAccounts] =
+    const [{ data: auth }, profiles, plans, callStatuses, clientStatuses, customFields, clients, socialAccounts, options] =
       await Promise.all([
         sb.auth.getUser(),
         sb.from("profiles").select("*").order("full_name"),
@@ -50,6 +52,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         sb.from("custom_fields").select("*").order("sort_order"),
         sb.from("clients").select("id,name,company,owner_id").order("name"),
         sb.from("social_accounts").select("*").order("network"),
+        sb.from("option_lists").select("*").order("sort_order"),
       ]);
     const allProfiles = (profiles.data ?? []) as Profile[];
     setState({
@@ -61,6 +64,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       customFields: (customFields.data ?? []) as CustomField[],
       clients: (clients.data ?? []) as ClientLite[],
       socialAccounts: (socialAccounts.data ?? []) as SocialAccount[],
+      options: (options.data ?? []) as OptionItem[],
       loading: false,
     });
   }, []);

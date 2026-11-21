@@ -7,7 +7,7 @@ import { useData } from "@/components/DataProvider";
 import { colorColumn, selectColumn } from "@/lib/grid";
 import UsuariosAdmin from "@/components/UsuariosAdmin";
 
-type Tab = "llamadas" | "clientes" | "campos" | "usuarios";
+type Tab = "llamadas" | "listas" | "clientes" | "campos" | "usuarios";
 
 export default function ConfiguracionPage() {
   const { reload } = useData();
@@ -24,6 +24,22 @@ export default function ConfiguracionPage() {
       { field: "is_final", headerName: "Llamada terminada", cellDataType: "boolean", headerTooltip: "La llamada ya se hizo (no queda pendiente)" },
       { field: "is_won", headerName: "Cuenta como cierre/venta", cellDataType: "boolean" },
       { field: "active", headerName: "Activo", cellDataType: "boolean", maxWidth: 110 },
+    ],
+    [],
+  );
+
+  const listCols = useMemo<ColDef[]>(
+    () => [
+      selectColumn("list_key", "Lista", [
+        { value: "via", label: "Vía" },
+        { value: "cierre", label: "Cierre" },
+        { value: "tipo_pago", label: "Tipo de pago" },
+      ]),
+      { field: "value", headerName: "Opción", minWidth: 180 },
+      colorColumn(),
+      { field: "sort_order", headerName: "Orden", cellDataType: "number", maxWidth: 110 },
+      { field: "is_won", headerName: "Cuenta como venta (Cierre)", cellDataType: "boolean" },
+      { field: "active", headerName: "Activa", cellDataType: "boolean", maxWidth: 110 },
     ],
     [],
   );
@@ -61,6 +77,7 @@ export default function ConfiguracionPage() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "llamadas", label: "Estados de llamadas" },
+    { key: "listas", label: "Listas desplegables" },
     { key: "clientes", label: "Estados de clientes" },
     { key: "campos", label: "Campos personalizados" },
     { key: "usuarios", label: "Usuarios" },
@@ -92,6 +109,24 @@ export default function ConfiguracionPage() {
             estados que querés contar como éxito en las estadísticas.
           </p>
           <EditableGrid fit key="cs" table="call_statuses" columns={callStatusCols} orderBy={{ column: "sort_order", ascending: true }} height={h} onChange={onChange} />
+        </>
+      )}
+      {tab === "listas" && (
+        <>
+          <p className="text-sm text-slate-600">
+            Opciones de las columnas <b>Vía</b>, <b>Cierre</b> y <b>Tipo de pago</b> de Llamadas. Agregá, cambiá el nombre o el color, o
+            desactivá las que no uses. Marcá “Cuenta como venta” en las opciones de Cierre que son una venta.
+          </p>
+          <EditableGrid
+            key="ol"
+            fit
+            table="option_lists"
+            columns={listCols}
+            orderBy={{ column: "sort_order", ascending: true }}
+            height={h}
+            onChange={onChange}
+            newRow={() => ({ list_key: "via", value: "Nueva opción" })}
+          />
         </>
       )}
       {tab === "clientes" && (

@@ -14,8 +14,14 @@ export type CustomField = {
   active: boolean;
 };
 export type ClientLite = { id: Id; name: string; company: string | null; owner_id: string | null };
+export type OptionItem = { id: Id; list_key: "via" | "cierre" | "tipo_pago"; value: string; color: string; sort_order: number; is_won: boolean; active: boolean };
 export type Call = {
   id: Id;
+  scheduled_on: string | null;
+  setter_id: string | null;
+  contact_name: string | null;
+  completed: boolean | null;
+  close_result: string | null;
   client_id: Id | null;
   user_id: string | null;
   status_id: Id | null;
@@ -37,4 +43,4 @@ export type SocialStat = {
   reach: number | null;
 };
 
-export type Option = { value: string | number; label: string; color?: string };
+export type Option = { value: string | number | boolean; label: string; color?: string };
