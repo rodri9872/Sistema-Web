@@ -8,6 +8,7 @@ import { today } from "@/lib/grid";
 import { AXIS, GRID, SERIES } from "@/lib/palette";
 import { MONTHS, num, pct, ratio } from "@/lib/metrics";
 import { downloadPdf } from "@/lib/pdf";
+import { useNotePrompt } from "@/components/NotaPdf";
 
 type DayRow = { stat_date: string; new_followers: number | null; new_conversations: number | null };
 type CallRow = { scheduled_date: string | null; scheduled_on: string | null; close_result: string | null; status_id: number | null };
@@ -23,6 +24,7 @@ export default function ResultadosPage() {
   const [calls, setCalls] = useState<CallRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const { ask, dialog } = useNotePrompt();
 
   useEffect(() => {
     const from = `${year}-01-01`;
@@ -83,6 +85,8 @@ export default function ResultadosPage() {
   const head = ["Nuevos seguidores", "Nuevas conversaciones", "Llamadas", "Ventas", "% Seguidores a llamada", "% Llamada a venta", "% Seguidores a venta"];
 
   const exportPdf = async () => {
+    const note = await ask();
+    if (note === null) return;
     setPdfBusy(true);
     try {
       await downloadPdf({
@@ -92,6 +96,7 @@ export default function ResultadosPage() {
         foot: [total.label, ...cells(total)],
         fileName: `resultados-mensuales-${year}`,
         landscape: true,
+        note,
       });
     } finally {
       setPdfBusy(false);
@@ -102,6 +107,7 @@ export default function ResultadosPage() {
 
   return (
     <div className="space-y-3">
+      {dialog}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="page-title">Resultados mensuales</h1>
         <div className="flex flex-wrap items-center gap-2">

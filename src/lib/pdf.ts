@@ -1,3 +1,5 @@
+import { drawNote } from "@/lib/pdf-note";
+
 // Genera un PDF con una tabla y lo descarga. Las librerías se cargan solo al usarlo.
 export type PdfReport = {
   title: string;
@@ -7,6 +9,8 @@ export type PdfReport = {
   foot?: (string | number)[];
   fileName: string;
   landscape?: boolean;
+  /** Observación que se imprime al final */
+  note?: string;
 };
 
 export async function downloadPdf(r: PdfReport) {
@@ -39,5 +43,6 @@ export async function downloadPdf(r: PdfReport) {
       doc.text(`Página ${page}`, w - 40, doc.internal.pageSize.getHeight() - 20, { align: "right" });
     },
   });
+  drawNote(doc, r.note, 40);
   doc.save(r.fileName.endsWith(".pdf") ? r.fileName : `${r.fileName}.pdf`);
 }

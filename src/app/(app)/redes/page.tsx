@@ -5,6 +5,7 @@ import type { ColDef, ValueGetterParams } from "ag-grid-community";
 import { Bar, BarChart, CartesianGrid, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import EditableGrid from "@/components/EditableGrid";
 import { money, today } from "@/lib/grid";
+import { useNotePrompt } from "@/components/NotaPdf";
 import { REPORT_HEAD, dayCells, downloadRedesReport, fillDays, totalCells } from "@/lib/pdf-redes";
 import { supabase } from "@/lib/supabase/client";
 import { AXIS, GRID, SERIES } from "@/lib/palette";
@@ -403,6 +404,7 @@ function InformeFechas() {
   const [rows, setRows] = useState<Daily[]>([]);
   const [busy, setBusy] = useState(false);
   const valid = Boolean(from && to && from <= to);
+  const { ask, dialog } = useNotePrompt();
 
   useEffect(() => {
     if (!valid) return;
@@ -436,9 +438,11 @@ function InformeFechas() {
   const m = now.getMonth();
 
   const download = async () => {
+    const note = await ask();
+    if (note === null) return;
     setBusy(true);
     try {
-      await downloadRedesReport(days, from, to);
+      await downloadRedesReport(days, from, to, note);
     } finally {
       setBusy(false);
     }
@@ -455,6 +459,7 @@ function InformeFechas() {
 
   return (
     <div className="space-y-3">
+      {dialog}
       <div className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
         <label className="flex flex-col text-xs text-slate-500">
           Desde
