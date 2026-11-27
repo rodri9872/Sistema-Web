@@ -5,6 +5,7 @@ import type { ColDef, ValueGetterParams } from "ag-grid-community";
 import { Bar, BarChart, CartesianGrid, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import EditableGrid from "@/components/EditableGrid";
 import { money, today } from "@/lib/grid";
+import { REPORT_HEAD, dayCells, downloadRedesReport, fillDays, totalCells } from "@/lib/pdf-redes";
 import { supabase } from "@/lib/supabase/client";
 import { AXIS, GRID, SERIES } from "@/lib/palette";
 import {
@@ -21,7 +22,7 @@ import {
   type Daily,
 } from "@/lib/metrics";
 
-type Tab = "diario" | "graficos" | "resumen";
+type Tab = "diario" | "graficos" | "resumen" | "informe";
 
 const legendText = (v: string) => <span style={{ color: "#334155", fontSize: 13 }}>{v}</span>;
 const dayLabel = (iso: string) => iso.slice(8, 10);
@@ -35,13 +36,14 @@ export default function RedesPage() {
     { key: "diario", label: "Registro diario" },
     { key: "graficos", label: "Estadísticas del mes" },
     { key: "resumen", label: "Resumen por mes" },
+    { key: "informe", label: "Informe entre fechas (PDF)" },
   ];
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="page-title">Redes sociales</h1>
-        {tab !== "resumen" && (
+        {(tab === "diario" || tab === "graficos") && (
           <div className="flex items-center gap-1">
             <button className="btn" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Mes anterior">
               ‹
@@ -77,6 +79,7 @@ export default function RedesPage() {
       {tab === "diario" && <RegistroDiario month={month} />}
       {tab === "graficos" && <EstadisticasMes month={month} />}
       {tab === "resumen" && <ResumenMeses />}
+      {tab === "informe" && <InformeFechas />}
     </div>
   );
 }
@@ -384,6 +387,147 @@ function ResumenMeses() {
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Informe entre dos fechas (con descarga en PDF)
+// ---------------------------------------------------------------------------
+const isoOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+function InformeFechas() {
+  const t = today();
+  const [from, setFrom] = useState(`${t.slice(0, 7)}-01`);
+  const [to, setTo] = useState(t);
+  const [rows, setRows] = useState<Daily[]>([]);
+  const [busy, setBusy] = useState(false);
+  const valid = Boolean(from && to && from <= to);
+
+  useEffect(() => {
+    if (!valid) return;
+    supabase()
+      .from("daily_metrics")
+      .select("*")
+      .gte("stat_date", from)
+      .lte("stat_date", to)
+      .order("stat_date")
+      .then(({ data }) => setRows((data ?? []) as Daily[]));
+  }, [from, to, valid]);
+
+  const days = useMemo(() => (valid ? fillDays(rows, from, to) : []), [rows, from, to, valid]);
+  const tot = useMemo(() => sumDaily(days), [days]);
+
+  const quick = (label: string, f: () => [Date, Date]) => (
+    <button
+      key={label}
+      className="btn"
+      onClick={() => {
+        const [a, b] = f();
+        setFrom(isoOf(a));
+        setTo(isoOf(b));
+      }}
+    >
+      {label}
+    </button>
+  );
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+
+  const download = async () => {
+    setBusy(true);
+    try {
+      await downloadRedesReport(days, from, to);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const tiles = [
+    { label: "Nuevos seguidores", value: num(tot.new_followers) },
+    { label: "Conversaciones", value: num(tot.conversations), sub: `${num(tot.new_conversations)} nuevas · ${num(tot.follow_ups)} follow ups` },
+    { label: "Propuestas", value: num(tot.proposals), sub: `${pct(tot.pctProposals)} de las conversaciones` },
+    { label: "Agendadas", value: num(tot.calls_scheduled), sub: `${pct(tot.pctCallsOverProposals)} de las propuestas` },
+    { label: "Ventas", value: num(tot.sales_closed), sub: `${pct(tot.pctSalesOverCalls)} de las agendadas` },
+    { label: "Facturación", value: money(tot.billing) || "0 €", sub: tot.avgTicket ? `Ticket promedio ${money(tot.avgTicket)}` : "" },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
+        <label className="flex flex-col text-xs text-slate-500">
+          Desde
+          <input type="date" className="input mt-0.5" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </label>
+        <label className="flex flex-col text-xs text-slate-500">
+          Hasta
+          <input type="date" className="input mt-0.5" value={to} onChange={(e) => setTo(e.target.value)} />
+        </label>
+        <div className="flex flex-wrap gap-1">
+          {quick("Este mes", () => [new Date(y, m, 1), now])}
+          {quick("Mes pasado", () => [new Date(y, m - 1, 1), new Date(y, m, 0)])}
+          {quick("Últimos 7 días", () => [new Date(y, m, now.getDate() - 6), now])}
+          {quick("Últimos 30 días", () => [new Date(y, m, now.getDate() - 29), now])}
+          {quick("Este año", () => [new Date(y, 0, 1), now])}
+        </div>
+        <button className="btn btn-primary sm:ml-auto" onClick={download} disabled={!valid || busy}>
+          {busy ? "Generando…" : "Descargar informe PDF"}
+        </button>
+      </div>
+      {!valid && <p className="text-sm text-red-600">La fecha “Desde” tiene que ser anterior o igual a “Hasta”.</p>}
+
+      {valid && (
+        <>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            {tiles.map((k) => (
+              <div key={k.label} className="card">
+                <div className="text-xs text-slate-500">{k.label}</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums">{k.value}</div>
+                {k.sub && <div className="mt-0.5 text-xs text-slate-500">{k.sub}</div>}
+              </div>
+            ))}
+          </div>
+          <div className="card overflow-x-auto p-0">
+            <table className="w-full min-w-[1100px] text-sm">
+              <thead>
+                <tr className="bg-green-800 text-xs text-white">
+                  {REPORT_HEAD.map((h, i) => (
+                    <th key={h} className={`whitespace-pre-line px-2 py-2 font-medium ${i < 2 ? "text-left" : "text-right"}`}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                {days.map((d) => {
+                  const wd = new Date(`${d.stat_date}T12:00:00`).getDay();
+                  return (
+                    <tr key={d.stat_date} className={`border-t border-slate-100 ${wd === 0 || wd === 6 ? "bg-slate-50" : ""}`}>
+                      {dayCells(d).map((c, i) => (
+                        <td key={i} className={`px-2 py-1.5 ${i < 2 ? "text-left" : "text-right"} ${c === "–" ? "text-slate-300" : ""}`}>
+                          {c}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="bg-green-800 font-semibold text-white tabular-nums">
+                  {totalCells("TOTAL", days)
+                    .filter((_, i) => i !== 1)
+                    .map((c, i) => (
+                      <td key={i} colSpan={i === 0 ? 2 : 1} className={`px-2 py-2 ${i === 0 ? "text-left" : "text-right"}`}>
+                        {c}
+                      </td>
+                    ))}
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 }
