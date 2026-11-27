@@ -1,4 +1,5 @@
 // Informe de Redes sociales en PDF: resumen arriba, tabla por día y totales.
+import { drawNote } from "@/lib/pdf-note";
 import { MONTHS, billing, pct, ratio, sumDaily, totalConversations, weekday, type Daily } from "@/lib/metrics";
 
 type RGB = [number, number, number];
@@ -96,7 +97,7 @@ export function totalCells(label: string, rows: Daily[]): string[] {
   ];
 }
 
-export async function downloadRedesReport(rows: Daily[], from: string, to: string) {
+export async function downloadRedesReport(rows: Daily[], from: string, to: string, note?: string) {
   const [{ jsPDF }, { autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
   const days = fillDays(rows, from, to);
   const t = sumDaily(days);
@@ -209,6 +210,8 @@ export async function downloadRedesReport(rows: Daily[], from: string, to: strin
       }
     },
   });
+
+  drawNote(doc, note, M, 34);
 
   // Pie de página con número de página
   const pages = doc.getNumberOfPages();

@@ -17,6 +17,7 @@ import {
 } from "ag-grid-community";
 import { AG_GRID_LOCALE_ES } from "@ag-grid-community/locale";
 import { supabase } from "@/lib/supabase/client";
+import { useNotePrompt } from "@/components/NotaPdf";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -345,11 +346,14 @@ export default function EditableGrid({
     }
   };
 
+  const { ask: askNote, dialog: noteDialog } = useNotePrompt();
   const allCols = (showCols && gridApi?.getColumns()) || [];
 
   const exportPdf = async () => {
     const api = apiRef.current;
     if (!api) return;
+    const note = await askNote();
+    if (note === null) return;
     const cols = api.getAllDisplayedColumns().filter((c) => c.getColDef().headerName);
     const text = (node: IRowNode<Row>, col: Column) => {
       const v = api.getCellValue({ rowNode: node, colKey: col, useFormatter: true });
@@ -369,11 +373,13 @@ export default function EditableGrid({
       foot: totalRow ? cols.map((c) => text(totalRow, c)) : undefined,
       fileName: exportName ?? table,
       landscape: cols.length > 5,
+      note,
     });
   };
 
   return (
     <div className="flex flex-col gap-2">
+      {noteDialog}
       <div className="flex flex-wrap items-center gap-2">
         {canAdd && (
           <button className="btn btn-primary" onClick={addRow}>
